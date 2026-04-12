@@ -1,0 +1,172 @@
+/* =========================
+   CONTAINER
+========================= */
+.saved-container {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* =========================
+   TITLE
+========================= */
+.saved-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #e2e8f0;
+}
+
+/* =========================
+   EMPTY STATE
+========================= */
+.saved-empty {
+  text-align: center;
+  opacity: 0.6;
+  padding: 40px;
+}
+
+/* =========================
+   CARD
+========================= */
+.saved-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.saved-card:hover {
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+/* =========================
+   HEADER (ROW)
+========================= */
+.saved-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* LEFT SIDE */
+.saved-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* NAME */
+.saved-name {
+  font-weight: 600;
+  color: #60a5fa;
+}
+
+/* QUERY */
+.saved-query {
+  font-size: 0.95rem;
+  color: #cbd5f5;
+}
+
+/* META */
+.saved-meta {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+/* =========================
+   RIGHT SIDE (ACTIONS)
+========================= */
+.saved-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* EXPAND ICON */
+.saved-expand {
+  font-size: 1.2rem;
+  opacity: 0.6;
+}
+
+/* DELETE BUTTON */
+.saved-delete {
+  background: transparent;
+  border: none;
+  color: #f87171;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.saved-delete:hover {
+  color: #ef4444;
+}
+
+/* =========================
+   EXPANDED SECTION
+========================= */
+.saved-expanded {
+  margin-top: 12px;
+  padding: 12px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* SQL BLOCK */
+.saved-sql {
+  background: #020617;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  overflow-x: auto;
+  color: #cbd5f5;
+}
+
+/* =========================
+   ACTION BUTTONS
+========================= */
+.saved-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* REPLAY BUTTON */
+.saved-replay {
+  background: #3b82f6;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.saved-replay:hover {
+  background: #2563eb;
+}
+
+/* DELETE (SECOND STYLE INSIDE EXPAND) */
+.saved-delete-btn {
+  background: #ef4444;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.saved-delete-btn:hover {
+  background: #dc2626;
+}
+
+.saved-db {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}

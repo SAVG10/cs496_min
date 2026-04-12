@@ -1,0 +1,124 @@
+/* 🔥 CONTAINER */
+.history-container {
+  padding: 24px;
+  color: #e2e8f0;
+}
+
+/* 🔥 TITLE */
+.history-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+/* 🔥 LIST */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 🔥 CARD */
+.history-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 14px 16px;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-card:hover {
+  background: #273449;
+  border-color: #475569;
+}
+
+/* 🔥 HEADER (CLICK AREA) */
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 🔥 QUERY TEXT */
+.history-query {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #f1f5f9;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 🔥 ARROW */
+.history-arrow {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.history-card.expanded .history-arrow {
+  transform: rotate(90deg);
+}
+
+/* 🔥 META */
+.history-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* 🔥 DB BADGE */
+.history-db {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* 🔥 EXPANDED SECTION */
+.history-expanded {
+  margin-top: 12px;
+  border-top: 1px solid #334155;
+  padding-top: 10px;
+}
+
+/* 🔥 SQL BLOCK */
+.history-sql {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px;
+
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #38bdf8;
+
+  overflow-x: auto;
+}
+
+/* 🔥 COPY BUTTON */
+.history-copy {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: #60a5fa;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.history-copy:hover {
+  text-decoration: underline;
+}
+
+/* 🔥 EMPTY */
+.history-empty {
+  text-align: center;
+  margin-top: 40px;
+  color: #64748b;
+}
