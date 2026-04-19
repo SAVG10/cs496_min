@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Security
     JWT_SECRET: str
 
+    # Must be a 32-byte URL-safe base64-encoded key
+    FERNET_KEY: str 
+     
     # External APIs
     GOOGLE_API_KEY: str
 
