@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import useRequireDB from "@/src/hooks/useRequireDB";
 import ProtectedRoute from "@/src/components/ProtectedRoute";
 import { apiFetch } from "@/src/lib/api";
-
+export const dynamic = "force-dynamic";
 
 import {
   Chart as ChartJS,
