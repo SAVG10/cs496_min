@@ -25,7 +25,17 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      setToken(res.token);
+      // Debug (remove later if you want)
+      console.log("LOGIN RESPONSE:", res);
+
+      // Handle both backend formats safely
+      const token = res.access_token || res.token;
+
+      if (!token) {
+        throw new Error("Login failed: token not received");
+      }
+
+      setToken(token);
 
       router.push("/connect-db");
 
