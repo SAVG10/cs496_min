@@ -1,4 +1,5 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
+console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
 
 // 🔐 Token helpers
 export function getToken() {

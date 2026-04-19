@@ -21,20 +21,27 @@ genai.configure(api_key=settings.GOOGLE_API_KEY)
 app = FastAPI(title="CS496 Analytics Backend")
 
 
-# 🌐 CORS Configuration (DEV + PROD)
+# 🌐 CORS Configuration (STRICT + SAFE)
 origins = [
-    "http://localhost:3000",                 # local frontend
-    "http://127.0.0.1:3000",               # local alt
-    "https://your-frontend.vercel.app",    # 🔁 replace with your actual Vercel URL
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    # 🔁 IMPORTANT: replace with your actual Vercel URL later
+    "https://your-frontend.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# 🔥 Explicit preflight handler (fixes NetworkError issue)
+@app.options("/{full_path:path}")
+async def preflight_handler():
+    return {"status": "ok"}
 
 
 # 📦 Routers
@@ -50,7 +57,7 @@ def root():
     return {"status": "Backend is running"}
 
 
-# 🩺 Health check (used by Render / monitoring tools)
+# 🩺 Health check
 @app.get("/health")
 def health():
     return {"status": "ok"}
