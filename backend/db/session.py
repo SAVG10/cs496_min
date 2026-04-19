@@ -1,34 +1,55 @@
-import psycopg2
-import os
-from dotenv import load_dotenv
 from fastapi import HTTPException
+import psycopg2
 
-load_dotenv()
+from core.settings import settings
+from core.security import decrypt  # 🔐 make sure this exists
+
+
+# 🔹 Internal helper to create DB connections safely
+def create_connection(host, port, dbname, user, password):
+    try:
+        return psycopg2.connect(
+            host=host,
+            port=port,
+            dbname=dbname,
+            user=user,
+            password=password,
+            connect_timeout=5,     # ⏱️ prevent hanging
+            sslmode="require"      # 🔐 required for most cloud DBs
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to connect to database"
+        )
 
 
 # 🔹 APP DB (stores users, connections, history)
 def get_app_db_connection():
-    return psycopg2.connect(
-        host=os.getenv("APP_DB_HOST"),
-        port=os.getenv("APP_DB_PORT"),
-        dbname=os.getenv("APP_DB_NAME"),
-        user=os.getenv("APP_DB_USER"),
-        password=os.getenv("APP_DB_PASSWORD")
+    return create_connection(
+        settings.APP_DB_HOST,
+        settings.APP_DB_PORT,
+        settings.APP_DB_NAME,
+        settings.APP_DB_USER,
+        settings.APP_DB_PASSWORD
     )
 
 
-# 🔹 DEFAULT ANALYTICS DB (fallback, optional)
+# 🔹 DEFAULT ANALYTICS DB (optional fallback)
 def get_analytics_db_connection():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD")
+    if not settings.DB_HOST:
+        raise HTTPException(status_code=400, detail="Default DB not configured")
+
+    return create_connection(
+        settings.DB_HOST,
+        settings.DB_PORT,
+        settings.DB_NAME,
+        settings.DB_USER,
+        settings.DB_PASSWORD
     )
 
 
-# 🔥 V2: DYNAMIC CONNECTION USING db_id (SECURE)
+# 🔥 V2: DYNAMIC CONNECTION USING db_id
 def get_connection_from_db_id(db_id: int, user_id: int):
     app_conn = None
     cursor = None
@@ -51,15 +72,12 @@ def get_connection_from_db_id(db_id: int, user_id: int):
                 detail="Database not found"
             )
 
-        host, port, dbname, username, password = result
+        host, port, dbname, username, encrypted_password = result
 
-        return psycopg2.connect(
-            host=host,
-            port=port,
-            dbname=dbname,
-            user=username,
-            password=password
-        )
+        # 🔐 decrypt password before use
+        password = decrypt(encrypted_password)
+
+        return create_connection(host, port, dbname, username, password)
 
     finally:
         if cursor:
@@ -68,11 +86,18 @@ def get_connection_from_db_id(db_id: int, user_id: int):
             app_conn.close()
 
 
-# 🔥 V2: ACTIVE DB CONNECTION (PRIMARY METHOD)
+# 🔥 ACTIVE DB CONNECTION (PRIMARY METHOD)
 def get_active_connection(user_id: int):
     """
     Returns:
         (connection, db_id)
+
+    ⚠️ Caller MUST close connection:
+        conn, db_id = get_active_connection(user_id)
+        try:
+            ...
+        finally:
+            conn.close()
     """
     app_conn = None
     cursor = None
@@ -96,15 +121,12 @@ def get_active_connection(user_id: int):
                 detail="No active database selected"
             )
 
-        db_id, host, port, dbname, username, password = result
+        db_id, host, port, dbname, username, encrypted_password = result
 
-        conn = psycopg2.connect(
-            host=host,
-            port=port,
-            dbname=dbname,
-            user=username,
-            password=password
-        )
+        # 🔐 decrypt password
+        password = decrypt(encrypted_password)
+
+        conn = create_connection(host, port, dbname, username, password)
 
         return conn, db_id
 

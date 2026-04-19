@@ -21,7 +21,6 @@ def get_dashboard_metrics(user_id: int):
         try:
             query = f"SELECT COUNT(*) as count FROM {table}"
             result = execute_query(query, user_id)
-            print(result)
 
             if result:
                 count = result[0]["count"]
@@ -31,7 +30,6 @@ def get_dashboard_metrics(user_id: int):
                     largest_table = table
 
         except Exception as e:
-            print(f"ERROR for table {table}:", str(e))
             continue
 
     # 🔹 3. Most Connected Table

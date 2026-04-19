@@ -6,37 +6,51 @@ from api.db_routes import router as db_router
 from api.connect_db import router as connect_router
 from routes.auth_routes import router as auth_router
 
-import os
-from dotenv import load_dotenv
+from core.settings import settings
 import google.generativeai as genai
 
-load_dotenv()
 
-# 🔐 Gemini config
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
+# 🔐 Configure Gemini
+if not settings.GOOGLE_API_KEY:
     raise Exception("GOOGLE_API_KEY not set")
 
-genai.configure(api_key=api_key)
+genai.configure(api_key=settings.GOOGLE_API_KEY)
 
+
+# 🚀 Create FastAPI app
 app = FastAPI(title="CS496 Analytics Backend")
 
-# ✅ CORS (dev mode)
+
+# 🌐 CORS Configuration (DEV + PROD)
+origins = [
+    "http://localhost:3000",                 # local frontend
+    "http://127.0.0.1:3000",               # local alt
+    "https://your-frontend.vercel.app",    # 🔁 replace with your actual Vercel URL
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Routers (structured)
+
+# 📦 Routers
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(connect_router, prefix="/db", tags=["Database"])
 app.include_router(db_router, prefix="/analytics", tags=["Analytics"])
 app.include_router(router, prefix="/user", tags=["User"])
 
 
+# ✅ Root endpoint
 @app.get("/")
 def root():
     return {"status": "Backend is running"}
+
+
+# 🩺 Health check (used by Render / monitoring tools)
+@app.get("/health")
+def health():
+    return {"status": "ok"}

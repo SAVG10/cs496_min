@@ -5,15 +5,18 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import hashlib
 
-SECRET_KEY = "super-secret-key"  # change during deployment
+from core.settings import settings  # ✅ use env config
+
+
+# 🔐 Config
+SECRET_KEY = settings.JWT_SECRET
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 security = HTTPBearer()
 
 
-# 🔐 PRE-HASH (FIXES bcrypt 72-byte limit)
+# 🔐 PRE-HASH (fixes bcrypt 72-byte limit)
 def _prehash(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -37,7 +40,7 @@ def create_token(user_id: int):
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# 🔓 Decode JWT (SAFE)
+# 🔓 Decode JWT
 def decode_token(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

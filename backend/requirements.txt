@@ -1,3 +1,15 @@
 fastapi
 uvicorn
+gunicorn
+
+psycopg2-binary
+
 python-dotenv
+pydantic-settings
+
+passlib[bcrypt]
+python-jose
+
+cryptography
+
+google-generativeai
