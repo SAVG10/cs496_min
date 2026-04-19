@@ -1,5 +1,4 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
-console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
 
 // 🔐 Token helpers
 export function getToken() {
@@ -19,7 +18,11 @@ export function removeToken() {
 export async function apiFetch(endpoint: string, options: any = {}) {
   const token = getToken();
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
+  // ✅ ensure proper URL joining
+  const url = `${BASE_URL}/${endpoint.replace(/^\/+/, "")}`;
+  console.log("Request URL:", url);
+
+  const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
