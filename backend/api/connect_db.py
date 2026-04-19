@@ -4,6 +4,7 @@ import psycopg2
 
 from services.auth import get_current_user
 from db.session import get_app_db_connection
+from core.security import encrypt  # ✅ IMPORTANT
 
 router = APIRouter()
 
@@ -12,7 +13,7 @@ router = APIRouter()
 class DBConnectRequest(BaseModel):
     name: str
     host: str
-    port: str
+    port: int  # ✅ better as int
     dbname: str
     username: str
     password: str
@@ -31,7 +32,9 @@ def connect_db(
             port=request.port,
             dbname=request.dbname,
             user=request.username,
-            password=request.password
+            password=request.password,
+            connect_timeout=5,
+            sslmode="require"
         )
         test_conn.close()
 
@@ -49,6 +52,9 @@ def connect_db(
         conn = get_app_db_connection()
         cursor = conn.cursor()
 
+        # 🔐 Encrypt password BEFORE storing
+        encrypted_password = encrypt(request.password)
+
         # 🔥 Insert new connection as ACTIVE
         cursor.execute("""
             INSERT INTO db_connections
@@ -62,7 +68,7 @@ def connect_db(
             request.port,
             request.dbname,
             request.username,
-            request.password
+            encrypted_password  # ✅ FIXED
         ))
 
         db_id = cursor.fetchone()[0]
