@@ -1,317 +1,336 @@
 /* =========================
-   Layout
+Layout
 ========================= */
 
 .content-wrapper {
-  padding: 24px;
-  color: #e2e8f0;
-  background: #0f172a;
-  min-height: 100vh;
+padding: 20px;
+color: #e2e8f0;
+background: #0f172a;
+min-height: 100vh;
 }
 
 /* =========================
-   Query Section
+Table Preview Cards (UPDATED)
+========================= */
+
+.table-preview-container {
+display: flex;
+gap: 14px;
+overflow-x: auto;
+margin-bottom: 18px;
+padding-bottom: 6px;
+}
+
+/* 🔥 RESIZABLE CARD */
+.table-card {
+min-width: 300px;
+width: 320px;
+max-width: 500px;
+
+background: #1e293b;
+padding: 12px;
+border-radius: 12px;
+border: 1px solid #334155;
+
+flex-shrink: 0;
+
+resize: horizontal;   /* 🔥 user can resize */
+overflow: auto;       /* required for resize */
+}
+
+/* Typography */
+.table-name {
+font-size: 15px;
+font-weight: 600;
+margin-bottom: 6px;
+}
+
+.table-desc {
+font-size: 12px;
+color: #94a3b8;
+margin-bottom: 8px;
+}
+
+/* Preview area */
+.table-preview {
+max-height: 160px;
+overflow: auto;
+}
+
+.table-preview table {
+width: 100%;
+font-size: 12px;
+border-collapse: collapse;
+}
+
+.table-preview th,
+.table-preview td {
+padding: 5px;
+border-bottom: 1px solid #334155;
+text-align: left;
+}
+
+.table-preview th {
+color: #94a3b8;
+font-weight: 600;
+}
+
+/* =========================
+Query Section
 ========================= */
 
 .query-section {
-  margin-bottom: 24px;
+margin-bottom: 20px;
 }
 
 .query-title {
-  font-size: 24px;
-  font-weight: 700;
+font-size: 22px;
+font-weight: 700;
 }
 
 .query-subtitle {
-  color: #94a3b8;
-  margin-top: 4px;
-  margin-bottom: 16px;
+color: #94a3b8;
+margin-top: 4px;
+margin-bottom: 14px;
 }
 
 .query-input-wrapper {
-  display: flex;
-  gap: 10px;
+display: flex;
+gap: 10px;
 }
 
 .query-input {
-  flex: 1;
-  padding: 12px;
-  border-radius: 10px;
-  border: none;
-  background: #1e293b;
-  color: #e2e8f0;
-  outline: none;
+flex: 1;
+padding: 11px;
+border-radius: 10px;
+border: none;
+background: #1e293b;
+color: #e2e8f0;
+outline: none;
 }
 
 .send-button {
-  padding: 12px 16px;
-  border-radius: 10px;
-  border: none;
-  background: #3b82f6;
-  color: white;
-  cursor: pointer;
+padding: 11px 14px;
+border-radius: 10px;
+border: none;
+background: #3b82f6;
+color: white;
+cursor: pointer;
 }
 
 .send-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+opacity: 0.6;
+cursor: not-allowed;
 }
 
 /* =========================
-   States
+States
 ========================= */
 
 .empty-state,
 .loading {
-  margin-top: 40px;
-  text-align: center;
-  color: #94a3b8;
+margin-top: 30px;
+text-align: center;
+color: #94a3b8;
 }
 
 .loading.show {
-  display: block;
+display: block;
 }
 
 .results-section {
-  margin-top: 20px;
+margin-top: 20px;
 }
 
 /* =========================
-   Chart / Table Section
+Chart / Table Section
 ========================= */
 
 .chart-section {
-  margin-top: 20px;
+margin-top: 20px;
 }
 
 .chart-container {
-  background: #1e293b;
-  padding: 16px;
-  border-radius: 12px;
+background: #1e293b;
+padding: 14px;
+border-radius: 12px;
 }
 
 /* Table styling */
 table {
-  width: 100%;
-  border-collapse: collapse;
-  color: #e2e8f0;
+width: 100%;
+border-collapse: collapse;
+color: #e2e8f0;
 }
 
 th,
 td {
-  padding: 10px;
-  border-bottom: 1px solid #334155;
-  text-align: left;
+padding: 9px;
+border-bottom: 1px solid #334155;
+text-align: left;
 }
 
 th {
-  color: #94a3b8;
-  font-weight: 600;
+color: #94a3b8;
+font-weight: 600;
 }
 
 /* =========================
-   SQL Section
+SQL Section
 ========================= */
 
 .sql-section {
-  margin-top: 20px;
+margin-top: 20px;
 }
 
-/* Toggle Button */
 .sql-toggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+width: 100%;
+display: flex;
+justify-content: space-between;
+align-items: center;
 
-  padding: 12px 16px;
-  background: #1e293b;
-  border: none;
-  border-radius: 10px;
+padding: 12px 16px;
+background: #1e293b;
+border: none;
+border-radius: 10px;
 
-  color: #e2e8f0;
-  cursor: pointer;
-  font-weight: 500;
+color: #e2e8f0;
+cursor: pointer;
+font-weight: 500;
 }
 
-/* Badge */
 .sql-toggle-badge {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #94a3b8;
+font-size: 0.85rem;
+font-weight: 600;
+color: #94a3b8;
 }
 
-/* Expand animation */
 .sql-content {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease;
+max-height: 0;
+overflow: hidden;
+transition: max-height 0.3s ease;
 }
 
 .sql-content.expanded {
-  max-height: 500px;
+max-height: 500px;
 }
 
-/* SQL container */
 .sql-display {
-  margin-top: 10px;
-  background: #020617;
-  border-radius: 12px;
-  padding: 16px;
+margin-top: 10px;
+background: #020617;
+border-radius: 12px;
+padding: 16px;
 }
 
-/* Header */
 .sql-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 12px;
 }
 
 .sql-label {
-  font-size: 0.85rem;
-  color: #94a3b8;
-  font-weight: 600;
+font-size: 0.85rem;
+color: #94a3b8;
+font-weight: 600;
 }
 
-/* Copy button */
 .copy-button {
-  background: #334155;
-  color: #e2e8f0;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: 0.2s;
+background: #334155;
+color: #e2e8f0;
+border: none;
+padding: 6px 12px;
+border-radius: 8px;
+font-size: 0.8rem;
+cursor: pointer;
+transition: 0.2s;
 }
 
 .copy-button:hover {
-  background: #475569;
+background: #475569;
 }
 
-/* SQL code */
 .sql-code {
-  font-family: "Courier New", monospace;
-  font-size: 14px;
-  color: #e2e8f0;
-  white-space: pre-wrap;
+font-family: "Courier New", monospace;
+font-size: 14px;
+color: #e2e8f0;
+white-space: pre-wrap;
 }
 
 /* =========================
-   Confidence + Reason (optional styling)
-========================= */
-
-.confidence-box {
-  border-radius: 10px;
-  padding: 12px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.reason-box {
-  background: #1e293b;
-  border-radius: 10px;
-  padding: 12px;
-  color: #cbd5f5;
-}
-
-.table-dropdown {
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #334155;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 14px;
-  outline: none;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.table-dropdown:hover {
-  border-color: #3b82f6;
-}
-
-.table-dropdown:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-}
-
-/* =========================
-   Confidence + Reason Layout
+Confidence + Reason
 ========================= */
 
 .confidence-container {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
+display: flex;
+gap: 20px;
+margin-bottom: 20px;
 }
 
-/* Confidence Block */
 .confidence-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 160px;
+display: flex;
+flex-direction: column;
+gap: 6px;
+min-width: 160px;
 }
 
 .confidence-label {
-  font-size: 0.8rem;
-  color: #94a3b8;
+font-size: 0.8rem;
+color: #94a3b8;
 }
 
-/* Reason Block */
 .reason-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+flex: 1;
+display: flex;
+flex-direction: column;
+gap: 6px;
 }
 
 .reason-label {
-  font-size: 0.8rem;
-  color: #94a3b8;
+font-size: 0.8rem;
+color: #94a3b8;
 }
 
-/* Existing box styles (keep these) */
 .confidence-box {
-  padding: 12px;
-  border-radius: 10px;
-  font-weight: bold;
-  text-align: center;
+border-radius: 10px;
+padding: 12px;
+font-weight: bold;
+text-align: center;
 }
 
 .reason-box {
-  background: #1e293b;
-  border-radius: 10px;
-  padding: 12px;
-  color: #cbd5f5;
+background: #1e293b;
+border-radius: 10px;
+padding: 12px;
+color: #cbd5f5;
 }
 
+/* =========================
+Chart Switcher
+========================= */
+
 .chart-switcher {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
+display: flex;
+gap: 10px;
+margin-bottom: 12px;
 }
 
 .chart-switcher button {
-  background: #1e293b;
-  color: #cbd5f5;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: 0.2s ease;
+background: #1e293b;
+color: #cbd5f5;
+border: none;
+padding: 6px 12px;
+border-radius: 6px;
+cursor: pointer;
+transition: 0.2s ease;
 }
 
-/* hover */
 .chart-switcher button:hover {
-  background: #334155;
+background: #334155;
 }
 
-/* 🔥 ACTIVE BUTTON */
 .chart-switcher button.active {
-  background: #3b82f6;
-  color: white;
-  font-weight: 500;
+background: #3b82f6;
+color: white;
+font-weight: 500;
 }

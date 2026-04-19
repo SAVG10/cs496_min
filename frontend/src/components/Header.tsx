@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useToast } from "@/src/context/ToastContext"; // 🔥 NEW
+import { useToast } from "@/src/context/ToastContext";
+import { apiFetch, removeToken } from "@/src/lib/api"; // 🔥 FIXED
 
 export default function Header() {
   const [activeDB, setActiveDB] = useState<string | null>(null);
+
   const router = useRouter();
   const pathname = usePathname();
-  const { showToast } = useToast(); // 🔥 NEW
+  const { showToast } = useToast();
 
+  // 🔹 FETCH ACTIVE DB (JWT SAFE)
   const fetchActiveDB = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/active-db");
-      const data = await res.json();
+      const data = await apiFetch("/db/active-db");
 
       if (data.success && data.data) {
         setActiveDB(data.data.name);
@@ -29,25 +31,28 @@ export default function Header() {
     fetchActiveDB();
   }, [pathname]);
 
-  // 🔥 DISCONNECT FUNCTION (UPDATED)
+  // 🔹 DISCONNECT DB
   const handleDisconnect = async () => {
     try {
-      await fetch("http://127.0.0.1:8000/disconnect-db", {
+      await apiFetch("/db/disconnect-db", {
         method: "POST",
       });
 
       setActiveDB(null);
-
-      // 🔥 TOAST
       showToast("Database disconnected");
-
-      // 🔥 REDIRECT
       router.push("/connect-db");
 
     } catch (err) {
       console.error("Disconnect failed", err);
       showToast("Failed to disconnect database");
     }
+  };
+
+  // 🔹 LOGOUT
+  const handleLogout = () => {
+    removeToken();
+    showToast("Logged out");
+    router.push("/login");
   };
 
   return (
@@ -62,7 +67,7 @@ export default function Header() {
       {/* LEFT */}
       <h1 className="page-title">Helix</h1>
 
-      {/* 🔥 FLEX SPACER */}
+      {/* FLEX SPACER */}
       <div style={{ flex: 1 }} />
 
       {/* RIGHT */}
@@ -74,7 +79,7 @@ export default function Header() {
           gap: "12px",
         }}
       >
-        {/* ACTIVE DB BADGE */}
+        {/* ACTIVE DB */}
         <div
           className="active-db-badge"
           style={{
@@ -105,8 +110,24 @@ export default function Header() {
           )}
         </div>
 
-        {/* USER */}
+        {/* USER AVATAR */}
         <div className="user-avatar">JD</div>
+
+        {/* 🔥 LOGOUT BUTTON */}
+        <button
+          onClick={handleLogout}
+          style={{
+            background: "#ef4444",
+            color: "white",
+            border: "none",
+            padding: "6px 10px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "0.8rem",
+          }}
+        >
+          Logout
+        </button>
       </div>
     </header>
   );

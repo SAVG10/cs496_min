@@ -1,0 +1,72 @@
+/* 🔹 Container */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* 🔹 Card */
+.login-card {
+  background: #0f172a;
+  padding: 30px;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.4);
+}
+
+/* 🔹 Title */
+.login-title {
+  font-size: 22px;
+  margin-bottom: 8px;
+  color: white;
+}
+
+/* 🔹 Subtitle */
+.login-subtitle {
+  color: #94a3b8;
+  margin-bottom: 20px;
+}
+
+/* 🔹 Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 🔹 Inputs */
+.login-form input {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #1e293b;
+  color: white;
+}
+
+/* 🔹 Button */
+.login-button {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background: #2563eb;
+}
+
+/* 🔹 Footer */
+.login-footer {
+  margin-top: 15px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.login-link {
+  color: #3b82f6;
+  cursor: pointer;
+}

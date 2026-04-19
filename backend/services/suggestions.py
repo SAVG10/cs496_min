@@ -12,8 +12,8 @@ def is_useless_column(col: str):
     )
 
 
-def generate_suggestions():
-    schema = get_schema()
+def generate_suggestions(user_id: int):
+    schema = get_schema(user_id)
 
     text_cols = []
     numeric_cols = []

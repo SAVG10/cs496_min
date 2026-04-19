@@ -2,16 +2,24 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; // 🔥 NEW
+import { useRouter } from "next/navigation";
 import "./dashboard.css";
-import useRequireDB from "@/src/hooks/useRequireDB";
 
+import useRequireDB from "@/src/hooks/useRequireDB";
+import ProtectedRoute from "@/src/components/ProtectedRoute";
+import { apiFetch } from "@/src/lib/api"; // 🔥 IMPORTANT
+
+function formatLabel(text: string) {
+  return text
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function Dashboard() {
 
-  useRequireDB(); // 🔥 NEW: Redirects if no DB
+  useRequireDB(); // keeps DB logic
 
-  const router = useRouter(); // 🔥 NEW
+  const router = useRouter();
 
   const [hasDB, setHasDB] = useState(true);
 
@@ -31,32 +39,32 @@ export default function Dashboard() {
 
   const [questions, setQuestions] = useState<string[]>([]);
 
-  // 🔥 Check active DB + REDIRECT
+  // 🔥 CHECK ACTIVE DB (FIXED WITH TOKEN)
   useEffect(() => {
-    fetch("http://localhost:8000/active-db")
-      .then(res => res.json())
-      .then(data => {
+    const checkDB = async () => {
+      try {
+        const data = await apiFetch("/db/active-db");
+
         if (!data.success || !data.data) {
           setHasDB(false);
-
-          // 🔥 REDIRECT TO CONNECT PAGE
           router.push("/connect-db");
         }
-      })
-      .catch(() => {
+      } catch {
         setHasDB(false);
         router.push("/connect-db");
-      });
+      }
+    };
+
+    checkDB();
   }, []);
 
-  // 🔹 Fetch dashboard metrics
+  // 🔹 FETCH METRICS (FIXED)
   useEffect(() => {
     if (!hasDB) return;
 
     const fetchMetrics = async () => {
       try {
-        const res = await fetch("http://localhost:8000/dashboard");
-        const data = await res.json();
+        const data = await apiFetch("/analytics/dashboard");
         setMetrics(data);
       } catch (err) {
         console.error("Failed to fetch dashboard metrics:", err);
@@ -66,14 +74,13 @@ export default function Dashboard() {
     fetchMetrics();
   }, [hasDB]);
 
-  // 🔹 Fetch schema-based suggestions
+  // 🔹 FETCH SUGGESTIONS (FIXED)
   useEffect(() => {
     if (!hasDB) return;
 
     const fetchSuggestions = async () => {
       try {
-        const res = await fetch("http://localhost:8000/suggestions");
-        const data = await res.json();
+        const data = await apiFetch("/analytics/suggestions");
         setQuestions(data);
       } catch (err) {
         console.error("Failed to fetch suggestions:", err);
@@ -84,184 +91,153 @@ export default function Dashboard() {
   }, [hasDB]);
 
   return (
-    <>
-      {/* 🔥 OPTIONAL: fallback UI (will barely show due to redirect) */}
-      {!hasDB && (
-        <div style={{
-          background: "#fee2e2",
-          color: "#991b1b",
-          padding: "12px",
-          borderRadius: "8px",
-          marginBottom: "20px",
-          textAlign: "center"
-        }}>
-          Redirecting to connect database...
-        </div>
-      )}
+    <ProtectedRoute>
 
-      {/* KPI CARDS */}
-      <div className="dashboard-grid">
-
-        <div className="stat-card">
-          <div className="stat-card-title">Total Tables</div>
-          <div className="stat-card-value">
-            {hasDB ? metrics.total_tables : "--"}
+      <>
+        {!hasDB && (
+          <div style={{
+            background: "#fee2e2",
+            color: "#991b1b",
+            padding: "12px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            textAlign: "center"
+          }}>
+            Redirecting to connect database...
           </div>
-        </div>
+        )}
 
-        <div className="stat-card">
-          <div className="stat-card-title">Largest Table</div>
-          <div className="stat-card-value">
-            {hasDB
-              ? `${metrics.largest_table} (${metrics.largest_table_count})`
-              : "--"}
-          </div>
-        </div>
+        {/* KPI CARDS */}
+        <div className="dashboard-grid">
 
-        <div className="stat-card">
-          <div className="stat-card-title">Most Connected Table</div>
-          <div className="stat-card-value">
-            {hasDB ? metrics.most_connected_table : "--"}
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card-title">Total Relationships</div>
-          <div className="stat-card-value">
-            {hasDB ? metrics.total_relationships : "--"}
-          </div>
-        </div>
-
-        {/* SCHEMA HEALTH */}
-        <div className="stat-card tooltip-card">
-          <div className="stat-card-title">Schema Health</div>
-
-          <div className="stat-card-value">
-            {hasDB ? metrics.schema_health.label : "--"}
-          </div>
-
-          {hasDB && (
-            <div className="tooltip-content">
-              <p><strong>Relationships:</strong> {metrics.schema_health.relationships}</p>
-              <p><strong>Tables:</strong> {metrics.schema_health.tables}</p>
-              <p><strong>Ratio:</strong> {metrics.schema_health.ratio}</p>
-
-              <hr />
-
-              <p><strong>Formula:</strong></p>
-              <p>relationships / tables</p>
+          <div className="stat-card">
+            <div className="stat-card-title">Total Tables</div>
+            <div className="stat-card-value">
+              {hasDB ? metrics.total_tables : "--"}
             </div>
-          )}
-        </div>
+          </div>
 
-      </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Largest Table</div>
+            <div className="stat-card-value">
+              {hasDB
+                ? `${metrics.largest_table} (${metrics.largest_table_count})`
+                : "--"}
+            </div>
+          </div>
 
-      {/* EXPLORE INSIGHTS */}
-      <div className="activity-section">
-        <div className="section-header">
-          <h2 className="section-title">Explore Insights</h2>
-        </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Most Connected Table</div>
+            <div className="stat-card-value">
+              {hasDB ? metrics.most_connected_table : "--"}
+            </div>
+          </div>
 
-        <div className="activity-list">
-          <Link
-            href={{
-              pathname: "/analytics",
-              query: { q: "Top 5 values in a column" }
-            }}
-            className="activity-item"
-          >
-            <div className="activity-icon">📊</div>
-            <div className="activity-content">
-              <div className="activity-title">Top Values</div>
-              <div className="activity-subtitle">
-                Discover most frequent entries in your dataset
+          <div className="stat-card">
+            <div className="stat-card-title">Total Relationships</div>
+            <div className="stat-card-value">
+              {hasDB ? metrics.total_relationships : "--"}
+            </div>
+          </div>
+
+          <div className="stat-card tooltip-card">
+            <div className="stat-card-title">Schema Health</div>
+
+            <div className="stat-card-value">
+              {hasDB ? metrics.schema_health.label : "--"}
+            </div>
+
+            {hasDB && (
+              <div className="tooltip-content">
+                <p><strong>Relationships:</strong> {metrics.schema_health.relationships}</p>
+                <p><strong>Tables:</strong> {metrics.schema_health.tables}</p>
+                <p><strong>Ratio:</strong> {metrics.schema_health.ratio}</p>
+
+                <hr />
+
+                <p><strong>Formula:</strong></p>
+                <p>relationships / tables</p>
               </div>
-            </div>
-          </Link>
+            )}
+          </div>
 
-          <Link
-            href={{
-              pathname: "/analytics",
-              query: { q: "Show trends over time" }
-            }}
-            className="activity-item"
-          >
-            <div className="activity-icon">📈</div>
-            <div className="activity-content">
-              <div className="activity-title">Trend Analysis</div>
-              <div className="activity-subtitle">
-                Understand how data evolves over time
-              </div>
-            </div>
-          </Link>
-        </div>
-      </div>
-
-      {/* SMART SUGGESTIONS */}
-      <div className="activity-section">
-        <div className="section-header">
-          <h2 className="section-title">Smart Suggestions</h2>
         </div>
 
-        <div className="activity-list">
-          {!hasDB ? (
-            <div className="activity-item">
+        {/* EXPLORE */}
+        <div className="activity-section">
+          <div className="section-header">
+            <h2 className="section-title">Explore Insights</h2>
+          </div>
+
+          <div className="activity-list">
+            <Link href={{ pathname: "/analytics", query: { q: "Top 5 values in a column" }}} className="activity-item">
+              <div className="activity-icon">📊</div>
               <div className="activity-content">
-                <div className="activity-title">
-                  Connect a database to see suggestions
-                </div>
+                <div className="activity-title">Top Values</div>
+                <div className="activity-subtitle">Discover most frequent entries</div>
               </div>
-            </div>
-          ) : questions.length > 0 ? (
-            questions.map((q, i) => (
-              <Link
-                key={i}
-                href={{
-                  pathname: "/analytics",
-                  query: { q }
-                }}
-                className="activity-item"
-              >
-                <div className="activity-icon">?</div>
+            </Link>
+
+            <Link href={{ pathname: "/analytics", query: { q: "Show trends over time" }}} className="activity-item">
+              <div className="activity-icon">📈</div>
+              <div className="activity-content">
+                <div className="activity-title">Trend Analysis</div>
+                <div className="activity-subtitle">Understand data over time</div>
+              </div>
+            </Link>
+          </div>
+        </div>
+
+        {/* SUGGESTIONS */}
+        <div className="activity-section">
+          <div className="section-header">
+            <h2 className="section-title">Smart Suggestions</h2>
+          </div>
+
+          <div className="activity-list">
+            {!hasDB ? (
+              <div className="activity-item">
                 <div className="activity-content">
-                  <div className="activity-title">{q}</div>
-                </div>
-              </Link>
-            ))
-          ) : (
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-title">
-                  Loading suggestions...
+                  <div className="activity-title">Connect a database to see suggestions</div>
                 </div>
               </div>
-            </div>
-          )}
+            ) : questions.length > 0 ? (
+              questions.map((q, i) => (
+                <Link key={i} href={{ pathname: "/analytics", query: { q }}} className="activity-item">
+                  <div className="activity-icon">?</div>
+                  <div className="activity-content">
+                    <div className="activity-title">{formatLabel(q)}</div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="activity-item">
+                <div className="activity-content">
+                  <div className="activity-title">Loading suggestions...</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* QUICK ACTIONS */}
-      <div className="section-header">
-        <h2 className="section-title">Quick Actions</h2>
-      </div>
+        {/* QUICK ACTIONS */}
+        <div className="section-header">
+          <h2 className="section-title">Quick Actions</h2>
+        </div>
 
-      <div className="quick-actions">
-        <Link href="/analytics" className="action-card">
-          <div className="action-card-icon">◉</div>
-          <h3 className="action-card-title">Start New Query</h3>
-          <p className="action-card-description">
-            Ask questions in natural language
-          </p>
-        </Link>
+        <div className="quick-actions">
+          <Link href="/analytics" className="action-card">
+            <div className="action-card-icon">◉</div>
+            <h3 className="action-card-title">Start New Query</h3>
+          </Link>
 
-        <Link href="/schema" className="action-card">
-          <div className="action-card-icon">▦</div>
-          <h3 className="action-card-title">Explore Schema</h3>
-          <p className="action-card-description">
-            View tables and relationships
-          </p>
-        </Link>
-      </div>
-    </>
+          <Link href="/schema" className="action-card">
+            <div className="action-card-icon">▦</div>
+            <h3 className="action-card-title">Explore Schema</h3>
+          </Link>
+        </div>
+      </>
+
+    </ProtectedRoute>
   );
 }

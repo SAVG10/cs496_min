@@ -3,26 +3,32 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/src/lib/api"; // 🔥 FIXED
 
 export default function Sidebar() {
 
   const pathname = usePathname();
 
-  // 🔥 NEW: Active DB state
+  // 🔥 Active DB state
   const [activeDB, setActiveDB] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/active-db")
-      .then(res => res.json())
-      .then(data => {
+    const fetchActiveDB = async () => {
+      try {
+        const data = await apiFetch("/db/active-db");
+
         if (data.success && data.data) {
           setActiveDB(data.data.name);
         } else {
           setActiveDB(null);
         }
-      })
-      .catch(() => setActiveDB(null));
-  }, []);
+      } catch {
+        setActiveDB(null);
+      }
+    };
+
+    fetchActiveDB();
+  }, [pathname]); // 🔥 updates on navigation
 
   return (
     <aside className="sidebar">
@@ -35,7 +41,6 @@ export default function Sidebar() {
           <div className="logo-subtext">Analytics</div>
         </div>
       </div>
-
 
       {/* Navigation */}
       <nav className="nav-menu">
@@ -68,7 +73,6 @@ export default function Sidebar() {
             <span>Schema</span>
           </Link>
 
-          {/* 🔥 NEW: Connect DB */}
           <Link
             href="/connect-db"
             className={`nav-item ${pathname === "/connect-db" ? "active" : ""}`}
@@ -101,6 +105,19 @@ export default function Sidebar() {
         </div>
 
       </nav>
+
+      {/* 🔥 FOOTER: ACTIVE DB */}
+      <div
+        style={{
+          marginTop: "auto",
+          padding: "12px",
+          fontSize: "0.8rem",
+          color: "#94a3b8",
+          borderTop: "1px solid #1e293b",
+        }}
+      >
+        {activeDB ? `Connected: ${activeDB}` : "No database connected"}
+      </div>
 
     </aside>
   );

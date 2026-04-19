@@ -2,23 +2,30 @@ from db.session import get_active_connection
 
 
 # ✅ GET SCHEMA (ACTIVE DB)
-def get_schema():
+def get_schema(user_id: int):
 
-    conn, _ = get_active_connection()
-    cursor = conn.cursor()
+    conn = None
+    cursor = None
 
-    query = """
-    SELECT table_name, column_name, data_type
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-    ORDER BY table_name, ordinal_position;
-    """
+    try:
+        conn, _ = get_active_connection(user_id)
+        cursor = conn.cursor()
 
-    cursor.execute(query)
-    rows = cursor.fetchall()
+        query = """
+        SELECT table_name, column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        ORDER BY table_name, ordinal_position;
+        """
 
-    cursor.close()
-    conn.close()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     schema = {}
 
@@ -43,31 +50,38 @@ def format_schema(schema: dict) -> str:
 
 
 # ✅ STEP 1: GET FOREIGN KEY RELATIONSHIPS (ACTIVE DB)
-def get_foreign_key_relationships():
+def get_foreign_key_relationships(user_id: int):
 
-    conn, _ = get_active_connection()
-    cursor = conn.cursor()
+    conn = None
+    cursor = None
 
-    query = """
-    SELECT
-        tc.table_name AS source_table,
-        kcu.column_name AS source_column,
-        ccu.table_name AS target_table,
-        ccu.column_name AS target_column
-    FROM
-        information_schema.table_constraints AS tc
-    JOIN information_schema.key_column_usage AS kcu
-        ON tc.constraint_name = kcu.constraint_name
-    JOIN information_schema.constraint_column_usage AS ccu
-        ON ccu.constraint_name = tc.constraint_name
-    WHERE tc.constraint_type = 'FOREIGN KEY';
-    """
+    try:
+        conn, _ = get_active_connection(user_id)
+        cursor = conn.cursor()
 
-    cursor.execute(query)
-    rows = cursor.fetchall()
+        query = """
+        SELECT
+            tc.table_name AS source_table,
+            kcu.column_name AS source_column,
+            ccu.table_name AS target_table,
+            ccu.column_name AS target_column
+        FROM
+            information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu
+            ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage AS ccu
+            ON ccu.constraint_name = tc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY';
+        """
 
-    cursor.close()
-    conn.close()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return [(src_t, src_c, tgt_t, tgt_c, "HIGH") for src_t, src_c, tgt_t, tgt_c in rows]
 
@@ -95,11 +109,11 @@ def infer_relationships_from_columns(schema: dict):
 
 
 # ✅ STEP 3: COMBINE RELATIONSHIPS (ACTIVE DB)
-def get_all_relationships():
+def get_all_relationships(user_id: int):
 
-    schema = get_schema()
+    schema = get_schema(user_id)
 
-    fk_relationships = get_foreign_key_relationships()
+    fk_relationships = get_foreign_key_relationships(user_id)
     column_relationships = infer_relationships_from_columns(schema)
 
     all_rel = fk_relationships + column_relationships
@@ -121,3 +135,9 @@ def format_relationships(relationships):
         text += f"- {src_t}.{src_c} = {tgt_t}.{tgt_c} ({confidence})\n"
 
     return text
+
+def get_fk_relationships_only(user_id: int):
+    """
+    ONLY return true foreign key relationships (for schema UI)
+    """
+    return get_foreign_key_relationships(user_id)

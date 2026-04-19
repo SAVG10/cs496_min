@@ -2,10 +2,8 @@
 
 import "@xyflow/react/dist/style.css";
 import "./schema.css";
-import useRequireDB from "@/src/hooks/useRequireDB";
 
-
-import { useEffect, useState, useRef, use } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -19,84 +17,69 @@ import {
   forceCenter,
   forceLink,
 } from "d3-force";
+import { forceCollide } from "d3-force";
+
+import useRequireDB from "@/src/hooks/useRequireDB";
+import ProtectedRoute from "@/src/components/ProtectedRoute";
+import { apiFetch } from "@/src/lib/api"; // 🔥 IMPORTANT
 
 export default function SchemaPage() {
 
-  useRequireDB(); // 🔥 NEW: Redirects if no DB
+  useRequireDB(); // ✅ keep this ONLY
 
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
-  // 🔥 NEW
-  const [hasDB, setHasDB] = useState(true);
-
   const schemaRef = useRef<any>(null);
+  const relationshipsRef = useRef<any[]>([]);
 
-  // 🔥 Check active DB
+  // 🔥 FETCH SCHEMA GRAPH (FIXED)
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/active-db")
-      .then(res => res.json())
-      .then(data => {
-        if (!data.success || !data.data) {
-          setHasDB(false);
-        }
-      })
-      .catch(() => setHasDB(false));
-  }, []);
-
-  useEffect(() => {
-    if (!hasDB) return; // 🔥 IMPORTANT FIX
-
     fetchSchema();
-  }, [hasDB]);
+  }, []);
 
   const fetchSchema = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/schema");
-      const schema = await res.json();
+      const data = await apiFetch("/analytics/schema-graph");
 
-      schemaRef.current = schema;
-      buildGraph(schema);
+      if (!data.success) return;
+
+      schemaRef.current = data.tables;
+      relationshipsRef.current = data.relationships;
+
+      buildGraph(data.tables, data.relationships);
+
     } catch {
-      console.error("Failed to fetch schema");
+      console.error("Failed to fetch schema graph");
     }
   };
 
-  // 🔥 physics layout
-  const buildGraph = (schema: any) => {
+  // 🔥 GRAPH BUILDER (UNCHANGED)
+  const buildGraph = (schema: any, relationships: any[]) => {
     const tableNames = Object.keys(schema);
 
     let simNodes: any[] = tableNames.map((table) => ({
       id: table,
     }));
 
-    let simLinks: any[] = [];
-
-    for (let i = 0; i < tableNames.length; i++) {
-      for (let j = i + 1; j < tableNames.length; j++) {
-        const t1 = tableNames[i];
-        const t2 = tableNames[j];
-
-        const cols1 = schema[t1].map((c: any) => c[0]);
-        const cols2 = schema[t2].map((c: any) => c[0]);
-
-        const common = cols1.find((c: string) => cols2.includes(c));
-
-        if (common) {
-          simLinks.push({
-            source: t1,
-            target: t2,
-            label: common,
-          });
-        }
-      }
-    }
+    let simLinks: any[] = relationships.map((rel) => ({
+      source: rel[0],
+      target: rel[2],
+      label: `${rel[1]} → ${rel[3]}`,
+      confidence: rel[4],
+    }));
 
     const simulation = forceSimulation(simNodes)
-      .force("charge", forceManyBody().strength(-300))
-      .force("center", forceCenter(500, 320))
-      .force("link", forceLink(simLinks).id((d: any) => d.id).distance(160))
+      .force("charge", forceManyBody().strength(-900))
+      .force("center", forceCenter(800, 450))
+      .force(
+        "link",
+        forceLink(simLinks)
+          .id((d: any) => d.id)
+          .distance(300)
+      )
+      .force("collision", forceCollide().radius(300))
       .stop();
 
     for (let i = 0; i < 300; i++) simulation.tick();
@@ -129,68 +112,45 @@ export default function SchemaPage() {
       };
     });
 
-    const newEdges = simLinks.map((link) => {
-      const isConnected =
-        selectedNode &&
-        (selectedNode === link.source || selectedNode === link.target);
-
-      return {
-        id: `${link.source}-${link.target}`,
-        source: link.source,
-        target: link.target,
-        label: link.label,
-        type: "smoothstep",
-        animated: !!isConnected,
-        style: {
-          stroke: isConnected ? "#60a5fa" : "#334155",
-          strokeWidth: isConnected ? 2.5 : 1.5,
-          opacity: selectedNode ? (isConnected ? 1 : 0.2) : 0.7,
-        },
-      };
-    });
+    const newEdges = relationships.map((rel: any, index: number) => ({
+      id: `e-${index}`,
+      source: rel[0],
+      target: rel[2],
+      label: `${rel[1]} → ${rel[3]}`,
+      type: "smoothstep",
+      animated: true,
+      style: {
+        stroke: "#60a5fa",
+        strokeWidth: 3,
+      },
+      labelStyle: { fill: "#94a3b8", fontSize: 12 },
+    }));
 
     setNodes(newNodes);
     setEdges(newEdges);
   };
 
-  // 🔥 drag fix
   const onNodesChange = (changes: any) => {
     setNodes((nds) => applyNodeChanges(changes, nds));
   };
 
-  // 🔥 re-layout
   const handleRelayout = () => {
     if (!schemaRef.current) return;
-    buildGraph(schemaRef.current);
+    buildGraph(schemaRef.current, relationshipsRef.current);
   };
 
   return (
-    <div className="schema-container">
+    <ProtectedRoute>
 
-      {/* 🔥 NO DB BANNER */}
-      {!hasDB && (
-        <div style={{
-          background: "#fee2e2",
-          color: "#991b1b",
-          padding: "12px",
-          borderRadius: "8px",
-          marginBottom: "15px",
-          textAlign: "center"
-        }}>
-          No database selected. Please connect a database to view schema.
-        </div>
-      )}
+      <div className="schema-container">
 
-      {/* 🔥 Button */}
-      <button
-        className="relayout-button"
-        onClick={handleRelayout}
-        disabled={!hasDB}
-      >
-        Re-layout
-      </button>
+        <button
+          className="relayout-button"
+          onClick={handleRelayout}
+        >
+          Re-layout
+        </button>
 
-      {hasDB && (
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -205,15 +165,16 @@ export default function SchemaPage() {
           <Background gap={24} size={1} color="#1e293b" />
           <Controls />
         </ReactFlow>
-      )}
 
-      {selectedNode && hasDB && (
-        <div className="info-panel">
-          <h3>{selectedNode}</h3>
-          <p>Showing relationships for this table</p>
-        </div>
-      )}
+        {selectedNode && (
+          <div className="info-panel">
+            <h3>{selectedNode}</h3>
+            <p>Showing relationships for this table</p>
+          </div>
+        )}
 
-    </div>
+      </div>
+
+    </ProtectedRoute>
   );
 }

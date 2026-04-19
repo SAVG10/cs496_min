@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import psycopg2
 
+from services.auth import get_current_user
 from db.session import get_app_db_connection
 
 router = APIRouter()
@@ -19,8 +20,10 @@ class DBConnectRequest(BaseModel):
 
 # ✅ CONNECT DB
 @router.post("/connect-db")
-def connect_db(request: DBConnectRequest):
-
+def connect_db(
+    request: DBConnectRequest,
+    user_id: int = Depends(get_current_user)
+):
     # 🔹 Step 1: Test connection
     try:
         test_conn = psycopg2.connect(
@@ -39,6 +42,9 @@ def connect_db(request: DBConnectRequest):
         )
 
     # 🔹 Step 2: Save + set active
+    conn = None
+    cursor = None
+
     try:
         conn = get_app_db_connection()
         cursor = conn.cursor()
@@ -50,7 +56,7 @@ def connect_db(request: DBConnectRequest):
             VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
             RETURNING id;
         """, (
-            1,
+            user_id,
             request.name,
             request.host,
             request.port,
@@ -61,12 +67,12 @@ def connect_db(request: DBConnectRequest):
 
         db_id = cursor.fetchone()[0]
 
-        # 🔥 Deactivate all others
+        # 🔥 Deactivate all other connections for this user
         cursor.execute("""
             UPDATE db_connections
             SET is_active = FALSE
-            WHERE user_id = 1 AND id != %s
-        """, (db_id,))
+            WHERE user_id = %s AND id != %s
+        """, (user_id, db_id))
 
         conn.commit()
 
@@ -77,8 +83,10 @@ def connect_db(request: DBConnectRequest):
         )
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {
         "success": True,
@@ -92,7 +100,10 @@ def connect_db(request: DBConnectRequest):
 
 # ✅ GET ALL CONNECTIONS
 @router.get("/db-connections")
-def get_connections():
+def get_connections(user_id: int = Depends(get_current_user)):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
@@ -101,9 +112,9 @@ def get_connections():
         cursor.execute("""
             SELECT id, name, is_active
             FROM db_connections
-            WHERE user_id = 1
+            WHERE user_id = %s
             ORDER BY id DESC
-        """)
+        """, (user_id,))
 
         rows = cursor.fetchall()
 
@@ -114,8 +125,10 @@ def get_connections():
         )
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {
         "success": True,
@@ -130,9 +143,12 @@ def get_connections():
     }
 
 
-# ✅ GET ACTIVE DB (🔥 REQUIRED FOR HEADER + REDIRECTS)
+# ✅ GET ACTIVE DB
 @router.get("/active-db")
-def get_active_db():
+def get_active_db(user_id: int = Depends(get_current_user)):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
@@ -141,9 +157,9 @@ def get_active_db():
         cursor.execute("""
             SELECT id, name
             FROM db_connections
-            WHERE user_id = 1 AND is_active = TRUE
+            WHERE user_id = %s AND is_active = TRUE
             LIMIT 1
-        """)
+        """, (user_id,))
 
         row = cursor.fetchone()
 
@@ -154,8 +170,10 @@ def get_active_db():
         )
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     if not row:
         return {
@@ -174,7 +192,10 @@ def get_active_db():
 
 # ✅ DISCONNECT DB
 @router.post("/disconnect-db")
-def disconnect_db():
+def disconnect_db(user_id: int = Depends(get_current_user)):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
@@ -183,8 +204,8 @@ def disconnect_db():
         cursor.execute("""
             UPDATE db_connections
             SET is_active = FALSE
-            WHERE user_id = 1
-        """)
+            WHERE user_id = %s
+        """, (user_id,))
 
         conn.commit()
 
@@ -195,8 +216,10 @@ def disconnect_db():
         )
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {
         "success": True,

@@ -16,18 +16,18 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("models/gemini-2.5-flash")
 
 
-def generate_sql(natural_query: str, selected_table: str):
+def generate_sql(natural_query: str, selected_table: str, user_id: int):
 
     # 🔥 Step 0: Empty query check
     if not natural_query.strip():
         return "", "LOW", "Query is empty"
 
     # ✅ Step 1: Schema
-    schema = get_schema()
+    schema = get_schema(user_id)
     schema_text = format_schema(schema)
 
     # ✅ Step 2: Relationships
-    relationships = get_all_relationships()
+    relationships = get_all_relationships(user_id)
     relationship_text = format_relationships(relationships)
 
     # ✅ Step 3: Prompt
@@ -44,7 +44,7 @@ You MUST follow these rules strictly:
 6. Always LIMIT results to 20 unless explicitly specified
 
 IMPORTANT:
-- The primary table is: {selected_table}
+- There is NO fixed primary table. Use the most relevant table(s) based on the query.
 - Only use JOIN when necessary
 - Do NOT guess relationships
 - When ordering numeric values, ALWAYS use NULLS LAST
@@ -53,6 +53,16 @@ RELATIONSHIP RULES:
 - Prefer HIGH confidence relationships
 - Use MEDIUM confidence only if necessary
 - If no valid relationship exists → DO NOT use JOIN
+
+DATA SELECTION RULES:
+
+- Use the most relevant table for the query
+- When performing aggregation (SUM, COUNT, AVG, etc.), prefer the most granular (lowest-level) table available
+- If a more detailed table exists for the requested data, it MUST be used even if it requires JOINs
+- When required data exists across multiple related tables, use JOINs based on the provided relationships
+- Avoid using higher-level summary columns if a more detailed calculation is possible
+- Only avoid JOINs when no additional detail or correctness is gained
+- Always prefer the lowest-level table in the relationship chain when performing aggregations
 
 Database schema:
 {schema_text}
@@ -169,3 +179,7 @@ User request:
 
     else:
         return "", "LOW", "JOIN used without valid relationship"
+    
+
+def get_model():
+    return model

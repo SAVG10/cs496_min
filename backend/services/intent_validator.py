@@ -6,7 +6,9 @@ def validate_intent(natural_query: str, schema: dict):
     # 🔥 1. Detect destructive intent (word-based but smarter)
     DANGEROUS_INTENT = [
         "drop", "delete", "truncate",
-        "remove", "clear", "erase"
+        "remove", "clear", "erase",
+        "update", "insert", "alter",
+        "create", "modify", "replace"
     ]
 
     # Only block if intent looks like an action, not a column name

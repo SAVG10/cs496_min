@@ -1,14 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from fastapi import HTTPException
 
-from services.text_to_sql import generate_sql
-from services.sql_validator import validate_sql
-from services.sql_executor import execute_query
-from services.schema import get_schema
-from services.intent_validator import validate_intent
-from services.dashboard import get_dashboard_metrics
-from services.suggestions import generate_suggestions
-
+from services.auth import get_current_user
 from db.session import get_app_db_connection
 
 router = APIRouter()
@@ -18,11 +12,6 @@ router = APIRouter()
 # 📦 MODELS
 # =========================
 
-class AnalyzeRequest(BaseModel):
-    query: str
-    table: str
-
-
 class SaveQueryRequest(BaseModel):
     name: str
     query: str
@@ -30,173 +19,36 @@ class SaveQueryRequest(BaseModel):
 
 
 # =========================
-# 🔥 ANALYZE ENDPOINT
-# =========================
-
-@router.post("/analyze")
-def analyze(request: AnalyzeRequest):
-
-    # 🔹 Step 0: Intent validation
-    try:
-        schema = get_schema()
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-    is_valid_intent, message = validate_intent(request.query, schema)
-
-    if not is_valid_intent:
-        return {"success": False, "error": message}
-
-    # 🔹 Step 1: NL → SQL
-    sql_query, confidence, reason = generate_sql(
-        request.query,
-        request.table
-    )
-
-    if confidence == "LOW":
-        return {"success": False, "error": reason}
-
-    # 🔹 Step 2: Validate SQL
-    allowed_tables = list(schema.keys())
-
-    if not validate_sql(sql_query, allowed_tables):
-        return {
-            "success": False,
-            "error": "Invalid or unsafe SQL query generated"
-        }
-
-    # 🔹 Step 3: Execute
-    try:
-        data = execute_query(sql_query)
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-    # 🔥 Step 3.5: SAVE QUERY HISTORY
-    try:
-        app_conn = get_app_db_connection()
-        cursor = app_conn.cursor()
-
-        # get active DB
-        cursor.execute("""
-            SELECT id FROM db_connections
-            WHERE user_id = 1 AND is_active = TRUE
-            LIMIT 1
-        """)
-        db_row = cursor.fetchone()
-        active_db_id = db_row[0] if db_row else None
-
-        cursor.execute("""
-            INSERT INTO query_history 
-            (user_id, db_id, natural_query, sql_query)
-            VALUES (%s, %s, %s, %s)
-        """, (
-            1,
-            active_db_id,
-            request.query,
-            sql_query
-        ))
-
-        app_conn.commit()
-
-    except Exception as e:
-        print("History save failed:", e)
-
-    finally:
-        try:
-            cursor.close()
-            app_conn.close()
-        except:
-            pass
-
-    # 🔹 Step 4: Data Quality Check
-    if data:
-        null_present = any(
-            any(value is None for value in row.values())
-            for row in data
-        )
-
-        if null_present:
-            if confidence == "VERY_HIGH":
-                confidence = "HIGH"
-                reason = "Result contains NULL values"
-            elif confidence == "HIGH":
-                confidence = "MEDIUM"
-                reason = "Some values missing (NULLs present)"
-
-    # 🔹 Final response
-    return {
-        "success": True,
-        "sql": sql_query,
-        "data": data,
-        "table": request.table,
-        "confidence": confidence,
-        "reason": reason
-    }
-
-
-# =========================
-# 📊 DASHBOARD
-# =========================
-
-@router.get("/dashboard")
-def dashboard():
-    return get_dashboard_metrics()
-
-
-# =========================
-# 💡 SUGGESTIONS
-# =========================
-
-@router.get("/suggestions")
-def suggestions():
-    return generate_suggestions()
-
-
-# =========================
-# 📚 TABLES
-# =========================
-
-@router.get("/tables")
-def get_tables():
-    try:
-        schema = get_schema()
-        return list(schema.keys())
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-# =========================
-# 🧠 FULL SCHEMA
-# =========================
-
-@router.get("/schema")
-def fetch_schema():
-    try:
-        return get_schema()
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-# =========================
-# 🟢 ACTIVE DB
+# 🟢 ACTIVE DB (USER-SCOPED)
 # =========================
 
 @router.get("/active-db")
-def active_db():
-    conn = get_app_db_connection()
-    cursor = conn.cursor()
+def active_db(user_id: int = Depends(get_current_user)):
 
-    cursor.execute("""
-        SELECT id, name
-        FROM db_connections
-        WHERE user_id = 1 AND is_active = TRUE
-        LIMIT 1
-    """)
+    conn = None
+    cursor = None
 
-    row = cursor.fetchone()
+    try:
+        conn = get_app_db_connection()
+        cursor = conn.cursor()
 
-    cursor.close()
-    conn.close()
+        cursor.execute("""
+            SELECT id, name
+            FROM db_connections
+            WHERE user_id = %s AND is_active = TRUE
+            LIMIT 1
+        """, (user_id,))
+
+        row = cursor.fetchone()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     if not row:
         return {"success": True, "data": None}
@@ -215,7 +67,10 @@ def active_db():
 # =========================
 
 @router.get("/query-history")
-def get_query_history():
+def get_query_history(user_id: int = Depends(get_current_user)):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
@@ -225,10 +80,10 @@ def get_query_history():
             SELECT q.id, q.natural_query, q.sql_query, q.created_at, d.name
             FROM query_history q
             LEFT JOIN db_connections d ON q.db_id = d.id
-            WHERE q.user_id = 1
+            WHERE q.user_id = %s
             ORDER BY q.created_at DESC
             LIMIT 20
-        """)
+        """, (user_id,))
 
         rows = cursor.fetchall()
 
@@ -236,8 +91,10 @@ def get_query_history():
         return {"success": False, "error": str(e)}
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {
         "success": True,
@@ -259,18 +116,25 @@ def get_query_history():
 # =========================
 
 @router.post("/save-query")
-def save_query(request: SaveQueryRequest):
+def save_query(
+    request: SaveQueryRequest,
+    user_id: int = Depends(get_current_user)
+):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
         cursor = conn.cursor()
 
-        # get active DB
+        # 🔹 get active DB for THIS user
         cursor.execute("""
             SELECT id FROM db_connections
-            WHERE user_id = 1 AND is_active = TRUE
+            WHERE user_id = %s AND is_active = TRUE
             LIMIT 1
-        """)
+        """, (user_id,))
+
         db_row = cursor.fetchone()
 
         if not db_row:
@@ -283,7 +147,7 @@ def save_query(request: SaveQueryRequest):
             (user_id, db_id, name, natural_query, sql_query)
             VALUES (%s, %s, %s, %s, %s)
         """, (
-            1,
+            user_id,
             db_id,
             request.name,
             request.query,
@@ -296,8 +160,10 @@ def save_query(request: SaveQueryRequest):
         return {"success": False, "error": str(e)}
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {"success": True}
 
@@ -307,7 +173,10 @@ def save_query(request: SaveQueryRequest):
 # =========================
 
 @router.get("/saved-queries")
-def get_saved_queries():
+def get_saved_queries(user_id: int = Depends(get_current_user)):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
@@ -317,9 +186,9 @@ def get_saved_queries():
             SELECT s.id, s.name, s.natural_query, s.sql_query, s.created_at, d.name, d.id
             FROM saved_queries s
             LEFT JOIN db_connections d ON s.db_id = d.id
-            WHERE s.user_id = 1
+            WHERE s.user_id = %s
             ORDER BY s.created_at DESC
-        """)
+        """, (user_id,))
 
         rows = cursor.fetchall()
 
@@ -327,8 +196,10 @@ def get_saved_queries():
         return {"success": False, "error": str(e)}
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {
         "success": True,
@@ -352,7 +223,13 @@ def get_saved_queries():
 # =========================
 
 @router.delete("/saved-query/{query_id}")
-def delete_saved_query(query_id: int):
+def delete_saved_query(
+    query_id: int,
+    user_id: int = Depends(get_current_user)
+):
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_app_db_connection()
@@ -360,8 +237,8 @@ def delete_saved_query(query_id: int):
 
         cursor.execute("""
             DELETE FROM saved_queries
-            WHERE id = %s AND user_id = 1
-        """, (query_id,))
+            WHERE id = %s AND user_id = %s
+        """, (query_id, user_id))
 
         conn.commit()
 
@@ -369,7 +246,9 @@ def delete_saved_query(query_id: int):
         return {"success": False, "error": str(e)}
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
     return {"success": True}

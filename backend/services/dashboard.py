@@ -2,9 +2,11 @@ from services.schema import get_schema, get_all_relationships
 from services.sql_executor import execute_query
 
 
-def get_dashboard_metrics():
-    schema = get_schema()
-    relationships = get_all_relationships()
+
+
+def get_dashboard_metrics(user_id: int):
+    schema = get_schema(user_id)
+    relationships = get_all_relationships(user_id)
 
     tables = list(schema.keys())
 
@@ -17,8 +19,9 @@ def get_dashboard_metrics():
 
     for table in tables:
         try:
-            query = f"SELECT COUNT(*) as count FROM {table};"
-            result = execute_query(query)
+            query = f"SELECT COUNT(*) as count FROM {table}"
+            result = execute_query(query, user_id)
+            print(result)
 
             if result:
                 count = result[0]["count"]
@@ -27,7 +30,8 @@ def get_dashboard_metrics():
                     largest_count = count
                     largest_table = table
 
-        except Exception:
+        except Exception as e:
+            print(f"ERROR for table {table}:", str(e))
             continue
 
     # 🔹 3. Most Connected Table

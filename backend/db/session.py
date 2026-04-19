@@ -1,6 +1,7 @@
 import psycopg2
 import os
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 load_dotenv()
 
@@ -16,7 +17,7 @@ def get_app_db_connection():
     )
 
 
-# 🔹 DEFAULT ANALYTICS DB (V1 fallback - keep for safety)
+# 🔹 DEFAULT ANALYTICS DB (fallback, optional)
 def get_analytics_db_connection():
     return psycopg2.connect(
         host=os.getenv("DB_HOST"),
@@ -27,22 +28,28 @@ def get_analytics_db_connection():
     )
 
 
-# 🔥 V2: DYNAMIC CONNECTION USING db_id (KEEP FOR FUTURE)
-def get_connection_from_db_id(db_id: int):
-    app_conn = get_app_db_connection()
-    cursor = app_conn.cursor()
+# 🔥 V2: DYNAMIC CONNECTION USING db_id (SECURE)
+def get_connection_from_db_id(db_id: int, user_id: int):
+    app_conn = None
+    cursor = None
 
     try:
+        app_conn = get_app_db_connection()
+        cursor = app_conn.cursor()
+
         cursor.execute("""
             SELECT host, port, dbname, username, password
             FROM db_connections
-            WHERE id = %s
-        """, (db_id,))
+            WHERE id = %s AND user_id = %s
+        """, (db_id, user_id))
 
         result = cursor.fetchone()
 
         if not result:
-            raise Exception("Database not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Database not found"
+            )
 
         host, port, dbname, username, password = result
 
@@ -55,20 +62,25 @@ def get_connection_from_db_id(db_id: int):
         )
 
     finally:
-        cursor.close()
-        app_conn.close()
+        if cursor:
+            cursor.close()
+        if app_conn:
+            app_conn.close()
 
 
 # 🔥 V2: ACTIVE DB CONNECTION (PRIMARY METHOD)
-def get_active_connection(user_id: int = 1):
+def get_active_connection(user_id: int):
     """
     Returns:
         (connection, db_id)
     """
-    app_conn = get_app_db_connection()
-    cursor = app_conn.cursor()
+    app_conn = None
+    cursor = None
 
     try:
+        app_conn = get_app_db_connection()
+        cursor = app_conn.cursor()
+
         cursor.execute("""
             SELECT id, host, port, dbname, username, password
             FROM db_connections
@@ -79,7 +91,10 @@ def get_active_connection(user_id: int = 1):
         result = cursor.fetchone()
 
         if not result:
-            raise Exception("No active database selected")
+            raise HTTPException(
+                status_code=400,
+                detail="No active database selected"
+            )
 
         db_id, host, port, dbname, username, password = result
 
@@ -91,8 +106,10 @@ def get_active_connection(user_id: int = 1):
             password=password
         )
 
-        return conn, db_id  # 🔥 IMPORTANT (hybrid-ready)
+        return conn, db_id
 
     finally:
-        cursor.close()
-        app_conn.close()
+        if cursor:
+            cursor.close()
+        if app_conn:
+            app_conn.close()
