@@ -45,7 +45,7 @@ You MUST follow these rules strictly:
 
 IMPORTANT:
 - There is NO fixed primary table. Use the most relevant table(s) based on the query.
-- Only use JOIN when necessary
+- Always use JOINs when data exists across multiple tables, based on the provided relationships
 - Do NOT guess relationships
 - When ordering numeric values, ALWAYS use NULLS LAST
 
