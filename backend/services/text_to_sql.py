@@ -49,6 +49,14 @@ IMPORTANT:
 - Do NOT guess relationships
 - When ordering numeric values, ALWAYS use NULLS LAST
 
+JOIN ENFORCEMENT RULE:
+
+- If the selected table has ANY relationship with another table, you MUST use JOIN
+- Do NOT return data from a single table if a related table exists
+- Always include related tables using JOINs based on the provided relationships
+- Prefer joining ALL directly connected tables if relevant columns can be selected
+- Even if the query can be answered from one table, include JOINs to enrich the result
+
 # 🔥 NEW: SEMANTIC MATCHING (ADDED)
 - The user query may NOT exactly match column names
 - You MUST infer the closest relevant columns based on meaning
