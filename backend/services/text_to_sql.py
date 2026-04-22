@@ -30,7 +30,7 @@ def generate_sql(natural_query: str, selected_table: str, user_id: int):
     relationships = get_all_relationships(user_id)
     relationship_text = format_relationships(relationships)
 
-    # ✅ Step 3: Prompt
+    # ✅ Step 3: Prompt (ONLY ADDITION HERE)
     prompt = f"""
 You are a PostgreSQL expert.
 
@@ -48,6 +48,15 @@ IMPORTANT:
 - Only use JOIN when necessary
 - Do NOT guess relationships
 - When ordering numeric values, ALWAYS use NULLS LAST
+
+# 🔥 NEW: SEMANTIC MATCHING (ADDED)
+- The user query may NOT exactly match column names
+- You MUST infer the closest relevant columns based on meaning
+- Example mappings:
+  "sales" → revenue, amount, price
+  "products" → item_name, product_id
+  "customers" → user_id, client_id
+- If exact match is not found, choose the MOST relevant column
 
 RELATIONSHIP RULES:
 - Prefer HIGH confidence relationships
@@ -81,12 +90,10 @@ User request:
     # 🔥 CLEAN + NORMALIZE
     sql = raw_text.replace("```sql", "").replace("```", "").strip()
 
-    # Preserve multiline SQL properly
     sql = "\n".join(
         [line.strip() for line in sql.splitlines() if line.strip()]
     )
 
-    # 🔍 DEBUG LOG
     print("\n🔍 GENERATED SQL:\n", sql, "\n")
 
     sql_upper = sql.upper()
@@ -99,7 +106,6 @@ User request:
     ):
         return "", "LOW", "Model did not generate a valid SQL query"
 
-    # 🔥 Block incomplete SQL
     if sql_upper in ["SELECT", "SELECT;"]:
         return "", "LOW", "Incomplete SQL generated"
 
@@ -135,9 +141,9 @@ User request:
         for s in schema_words
     )
 
-    # 🔥 Case 2: Not relevant
-    if not relevant:
-        return "", "LOW", "Query does not relate to database schema"
+    # 🔥 ❌ REMOVED HARD BLOCK
+    # if not relevant:
+    #     return "", "LOW", "Query does not relate to database schema"
 
     # 🔥 STEP 5: Query intelligence detection
     is_aggregation = any(func in sql_upper for func in [
@@ -149,7 +155,7 @@ User request:
     has_group_by = "GROUP BY" in sql_upper
     has_join = "JOIN" in sql_upper
 
-    # 🔥 STEP 6: GENERIC QUERY (ALLOW IT NOW)
+    # 🔥 STEP 6: GENERIC QUERY
     if (
         "LIMIT 20" in sql_upper
         and not has_where
@@ -157,29 +163,40 @@ User request:
         and not has_group_by
         and not is_aggregation
     ):
-        return sql, "MEDIUM", "Query is too broad; showing general results"
+        confidence = "MEDIUM"
+        reason = "Query is too broad; showing general results"
 
     # 🔥 STEP 7: AGGREGATION WITHOUT BREAKDOWN
-    if is_aggregation and not has_group_by:
-        return sql, "MEDIUM", "Aggregation query without grouping"
+    elif is_aggregation and not has_group_by:
+        confidence = "MEDIUM"
+        reason = "Aggregation query without grouping"
 
     # 🔥 STEP 8: STRONG SINGLE TABLE QUERY
-    if not has_join:
-        return sql, "VERY_HIGH", "Query directly uses a single table without joins"
+    elif not has_join:
+        confidence = "VERY_HIGH"
+        reason = "Query directly uses a single table without joins"
 
     # 🔥 STEP 9: JOIN CONFIDENCE
-    has_high = any(rel[-1] == "HIGH" for rel in relationships)
-    has_medium = any(rel[-1] == "MEDIUM" for rel in relationships)
-
-    if has_high:
-        return sql, "HIGH", "JOIN uses foreign key relationships"
-
-    elif has_medium:
-        return sql, "MEDIUM", "JOIN inferred from matching column names"
-
     else:
-        return "", "LOW", "JOIN used without valid relationship"
-    
+        has_high = any(rel[-1] == "HIGH" for rel in relationships)
+        has_medium = any(rel[-1] == "MEDIUM" for rel in relationships)
+
+        if has_high:
+            confidence = "HIGH"
+            reason = "JOIN uses foreign key relationships"
+        elif has_medium:
+            confidence = "MEDIUM"
+            reason = "JOIN inferred from matching column names"
+        else:
+            return "", "LOW", "JOIN used without valid relationship"
+
+    # 🔥 NEW: SOFT FALLBACK (ONLY ADDITION)
+    if not relevant:
+        confidence = "MEDIUM"
+        reason = "Semantic match used; inferred columns"
+
+    return sql, confidence, reason
+
 
 def get_model():
     return model
