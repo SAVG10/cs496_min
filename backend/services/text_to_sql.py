@@ -63,6 +63,10 @@ RELATIONSHIP RULES:
 - Use MEDIUM confidence only if necessary
 - If no valid relationship exists → DO NOT use JOIN
 
+STRING MATCHING RULES:
+- Text comparisons MUST be case-insensitive
+- ALWAYS use ILIKE instead of = for text filtering
+
 DATA SELECTION RULES:
 
 - Use the most relevant table for the query
