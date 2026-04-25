@@ -15,6 +15,7 @@ from services.dashboard import get_dashboard_metrics
 from services.suggestions import generate_suggestions
 from services.auth import get_current_user
 from db.session import get_app_db_connection
+from services.sql_executor import execute_query
 
 
 router = APIRouter()
@@ -273,3 +274,41 @@ def fetch_schema_graph(user_id: int = Depends(get_current_user)):
             "success": False,
             "error": str(e)
         }
+    
+
+
+
+
+
+# =========================
+# GET ALL TABLES
+# =========================
+@router.get("/db/tables")
+def get_all_tables(user=Depends(get_current_user)):
+    query = """
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+    ORDER BY table_name;
+    """
+
+    result = execute_query(query, user.id)
+
+    return [row["table_name"] for row in result]
+
+
+# =========================
+# GET TABLE DATA
+# =========================
+@router.get("/db/table/{table_name}")
+def get_table_data(table_name: str, user=Depends(get_current_user)):
+
+    # 🔒 basic SQL injection protection
+    if not table_name.replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid table name")
+
+    query = f'SELECT * FROM "{table_name}" LIMIT 100;'
+
+    result = execute_query(query, user.id)
+
+    return result

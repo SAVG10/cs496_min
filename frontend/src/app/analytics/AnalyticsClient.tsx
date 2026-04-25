@@ -39,6 +39,11 @@ export default function Analytics() {
   const [showSQL, setShowSQL] = useState(false);
   const [hasDB, setHasDB] = useState(true);
   const [tablePreviews, setTablePreviews] = useState<any>({});
+  const [openTable, setOpenTable] = useState<string | null>(null);
+
+const toggleTable = (tableName: string) => {
+  setOpenTable(prev => (prev === tableName ? null : tableName));
+};
 
   const [query, setQuery] = useState("");
   const [sqlQuery, setSqlQuery] = useState("");
@@ -301,46 +306,57 @@ const hasFetchedDescriptions = useRef(false);
           </div>
         )}
 
-
-        {/* 🔥 TABLE PREVIEW CARDS */}
-        <div className="table-preview-container">
+        {/* TABLE PREVIEWS */}
+        <div className="accordion-container">
 
           {Object.keys(tablePreviews).map((table) => {
             const preview = tablePreviews[table];
+            const isOpen = openTable === table;
 
             return (
-              <div key={table} className="table-card">
+              <div key={table} className="accordion-item">
 
-                <h3 className="table-name">{table}</h3>
-                <p className="table-desc">
-                  {preview.description || "⏳ Generating description..."}
-                </p>
-
-                <div className="table-preview">
-                  {preview.rows.length === 0 ? (
-                    <p>No data</p>
-                  ) : (
-                    <table>
-                      <thead>
-                        <tr>
-                          {preview.columns.map((col: string) => (
-                            <th key={col}>{col}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {preview.rows.map((row: any, i: number) => (
-                          <tr key={i}>
-                            {Object.values(row).map((val: any, j: number) => (
-                              <td key={j}>{String(val)}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                {/* HEADER */}
+                <div
+                  className={`accordion-header ${isOpen ? "open" : ""}`}
+                  onClick={() => toggleTable(table)}
+                >
+                  {table}
                 </div>
 
+                {/* CONTENT */}
+                <div className={`accordion-content ${isOpen ? "open" : ""}`}>
+
+                  <p className="table-desc">
+                    {preview.description || "⏳ Generating description..."}
+                  </p>
+
+                  <div className="table-preview">
+                    {preview.rows.length === 0 ? (
+                      <p>No data</p>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            {preview.columns.map((col: string) => (
+                              <th key={col}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.rows.map((row: any, i: number) => (
+                            <tr key={i}>
+                              {Object.values(row).map((val: any, j: number) => (
+                                <td key={j}>{String(val)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                </div>
               </div>
             );
           })}

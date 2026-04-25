@@ -32,66 +32,160 @@ def generate_sql(natural_query: str, selected_table: str, user_id: int):
 
     # ✅ Step 3: Prompt (ONLY ADDITION HERE)
     prompt = f"""
-You are a PostgreSQL expert.
+You are a PostgreSQL expert. Convert the user's natural language request into a single SELECT query.
 
-You MUST follow these rules strictly:
+════════════════════════════════════════════
+SECTION 1 — OUTPUT FORMAT
+════════════════════════════════════════════
 
-1. Only generate SELECT queries
-2. Use ONLY the given tables and columns
-3. Do NOT invent columns or tables
-4. Do NOT use DELETE, UPDATE, INSERT, DROP, ALTER, TRUNCATE
-5. Return ONLY raw SQL (no explanation, no markdown)
-6. Always LIMIT results to 20 unless explicitly specified
+- Return ONLY raw SQL
+- No markdown, no explanation, no comments
+- LIMIT 20 unless user specifies otherwise
+- NULLS LAST when ordering numeric values
 
-IMPORTANT:
-- There is NO fixed primary table. Use the most relevant table(s) based on the query.
-- Always use JOINs when data exists across multiple tables, based on the provided relationships
-- Do NOT guess relationships
-- When ordering numeric values, ALWAYS use NULLS LAST
+════════════════════════════════════════════
+SECTION 2 — ALLOWED OPERATIONS
+════════════════════════════════════════════
 
-JOIN ENFORCEMENT RULE:
+- SELECT only
+- No DELETE, UPDATE, INSERT, DROP, ALTER, TRUNCATE
 
-- If the selected table has ANY relationship with another table, you MUST use JOIN
-- Do NOT return data from a single table if a related table exists
-- Always include related tables using JOINs based on the provided relationships
-- Prefer joining ALL directly connected tables if relevant columns can be selected
-- Even if the query can be answered from one table, include JOINs to enrich the result
+════════════════════════════════════════════
+SECTION 3 — SCHEMA DISCIPLINE
+════════════════════════════════════════════
 
-# 🔥 NEW: SEMANTIC MATCHING (ADDED)
-- The user query may NOT exactly match column names
-- You MUST infer the closest relevant columns based on meaning
-- Example mappings:
-  "sales" → revenue, amount, price
-  "products" → item_name, product_id
-  "customers" → user_id, client_id
-- If exact match is not found, choose the MOST relevant column
+- Use ONLY tables and columns from the schema below
+- Do NOT invent columns or tables
+- Do NOT guess relationships — use only provided ones
 
-RELATIONSHIP RULES:
+════════════════════════════════════════════
+SECTION 4 — THE GOLDEN EXAMPLE (READ CAREFULLY)
+════════════════════════════════════════════
+
+Given this schema:
+  line_items(line_item_id, service_id, line_code, service_type, description, line_total)
+  service_records(service_id, invoice_number, vehicle_make, notes)
+  line_subitems(subitem_id, line_item_id, description, quantity, total_price)
+
+User asks: "show me services named warranty"
+
+❌ WRONG QUERY (never generate this):
+SELECT li.service_type, li.description, sr.invoice_number
+FROM line_items AS li
+JOIN service_records AS sr ON li.service_id = sr.service_id
+WHERE li.description ILIKE '%warranty%'          -- WRONG: description is display-only
+   OR ls.description ILIKE '%warranty%'          -- WRONG: description is display-only
+   OR sr.notes ILIKE '%warranty%'                -- WRONG: notes is display-only
+LIMIT 20;
+
+✅ CORRECT QUERY (always follow this pattern):
+SELECT
+  li.service_type,
+  li.description,           -- OK to SELECT description
+  li.line_total,
+  sr.invoice_number,
+  sr.vehicle_make,
+  ls.description AS subitem_description,
+  ls.quantity,
+  ls.total_price
+FROM line_items AS li
+JOIN service_records AS sr ON li.service_id = sr.service_id
+JOIN line_subitems AS ls ON li.line_item_id = ls.line_item_id
+WHERE li.service_type ILIKE 'Warranty'           -- CORRECT: filter on categorical column
+LIMIT 20;
+
+WHY THE CORRECT QUERY IS RIGHT:
+- "named warranty" maps to service_type (categorical), NOT description (free text)
+- description is SELECTed for display but NEVER used in WHERE
+- notes is SELECTed for display but NEVER used in WHERE
+- Only ONE column used in WHERE — no OR fallback chains
+
+════════════════════════════════════════════
+SECTION 5 — WHERE CLAUSE RULES (ABSOLUTE)
+════════════════════════════════════════════
+
+FORBIDDEN in WHERE (display-only columns — SELECT them freely, never filter on them):
+  ✗ description
+  ✗ notes
+  ✗ details
+  ✗ comments
+  ✗ remarks
+  ✗ summary
+  ✗ text
+  ✗ memo
+
+ALLOWED in WHERE (categorical/structured columns — always prefer these):
+  ✓ service_type
+  ✓ type
+  ✓ category
+  ✓ status
+  ✓ name
+  ✓ code
+  ✓ label
+  ✓ tag
+
+MANDATORY SELF-CHECK before writing WHERE:
+  For each condition you are about to write, ask:
+  "Is this column a free-text / description / notes column?"
+  → YES: remove it from WHERE. Find the categorical equivalent instead.
+  → NO: keep it.
+
+OR IS FORBIDDEN:
+  Never write: WHERE col_a ILIKE 'x' OR col_b ILIKE 'x'
+  Always write: WHERE one_categorical_column ILIKE 'Value'
+
+════════════════════════════════════════════
+SECTION 6 — INTENT MAPPING
+════════════════════════════════════════════
+
+User says:                      → Filter on:
+"named X"                       → name, service_type, type, category
+"type X"                        → type, service_type, category
+"category X"                    → category, type
+"status X"                      → status
+"containing X" / "search X"     → description, notes (ONLY these cases)
+"with code X"                   → code, line_code
+
+════════════════════════════════════════════
+SECTION 7 — VALUE NORMALIZATION
+════════════════════════════════════════════
+
+- Normalize user values to Title Case: "warranty" → "Warranty"
+- Default: exact match → ILIKE 'Warranty'
+- Partial match → ILIKE '%Warranty%' ONLY if user says "contains" / "search" / "like"
+
+════════════════════════════════════════════
+SECTION 8 — JOIN RULES
+════════════════════════════════════════════
+
+- Always JOIN when relationships exist between tables
 - Prefer HIGH confidence relationships
-- Use MEDIUM confidence only if necessary
-- If no valid relationship exists → DO NOT use JOIN
+- Include all directly connected tables to enrich results
+- Never JOIN without a valid relationship from the list below
 
-STRING MATCHING RULES:
-- Text comparisons MUST be case-insensitive
-- ALWAYS use ILIKE instead of = for text filtering
+════════════════════════════════════════════
+DATABASE SCHEMA:
+════════════════════════════════════════════
 
-DATA SELECTION RULES:
-
-- Use the most relevant table for the query
-- When performing aggregation (SUM, COUNT, AVG, etc.), prefer the most granular (lowest-level) table available
-- If a more detailed table exists for the requested data, it MUST be used even if it requires JOINs
-- When required data exists across multiple related tables, use JOINs based on the provided relationships
-- Avoid using higher-level summary columns if a more detailed calculation is possible
-- Only avoid JOINs when no additional detail or correctness is gained
-- Always prefer the lowest-level table in the relationship chain when performing aggregations
-
-Database schema:
 {schema_text}
+
+════════════════════════════════════════════
+RELATIONSHIPS:
+════════════════════════════════════════════
 
 {relationship_text}
 
-User request:
+════════════════════════════════════════════
+USER REQUEST:
+════════════════════════════════════════════
+
 {natural_query}
+
+════════════════════════════════════════════
+REMINDER BEFORE YOU WRITE THE WHERE CLAUSE:
+  Check every condition — if it touches description, notes, or any free-text column → remove it.
+  Use ONE categorical column only. No OR. No fallback.
+════════════════════════════════════════════
 """
 
     # ✅ Step 4: Generate SQL

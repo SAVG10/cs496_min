@@ -74,6 +74,14 @@ export default function Sidebar() {
           </Link>
 
           <Link
+            href="/data-explorer"
+            className={`nav-item ${pathname === "/data-explorer" ? "active" : ""}`}
+          >
+            <span className="nav-icon">📂</span>
+            <span>Data Explorer</span>
+          </Link>
+
+          <Link
             href="/connect-db"
             className={`nav-item ${pathname === "/connect-db" ? "active" : ""}`}
           >

@@ -1,0 +1,19 @@
+.table-item {
+  padding: 10px;
+  background: #1e293b;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.table-item:hover {
+  background: #334155;
+}
+
+.data-table-container {
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #334155;
+  border-radius: 10px;
+}

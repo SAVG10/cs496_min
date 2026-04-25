@@ -7,7 +7,7 @@ import "./dashboard.css";
 
 import useRequireDB from "@/src/hooks/useRequireDB";
 import ProtectedRoute from "@/src/components/ProtectedRoute";
-import { apiFetch } from "@/src/lib/api"; // 🔥 IMPORTANT
+import { apiFetch } from "@/src/lib/api";
 
 function formatLabel(text: string) {
   return text
@@ -16,8 +16,7 @@ function formatLabel(text: string) {
 }
 
 export default function Dashboard() {
-
-  useRequireDB(); // keeps DB logic
+  useRequireDB();
 
   const router = useRouter();
 
@@ -39,7 +38,12 @@ export default function Dashboard() {
 
   const [questions, setQuestions] = useState<string[]>([]);
 
-  // 🔥 CHECK ACTIVE DB (FIXED WITH TOKEN)
+  // ✅ NAVIGATION HANDLER (NEW)
+  const goToSchema = (type?: string) => {
+    router.push(`/schema${type ? `?focus=${type}` : ""}`);
+  };
+
+  // 🔥 CHECK ACTIVE DB
   useEffect(() => {
     const checkDB = async () => {
       try {
@@ -58,7 +62,7 @@ export default function Dashboard() {
     checkDB();
   }, []);
 
-  // 🔹 FETCH METRICS (FIXED)
+  // 🔹 FETCH METRICS
   useEffect(() => {
     if (!hasDB) return;
 
@@ -74,7 +78,7 @@ export default function Dashboard() {
     fetchMetrics();
   }, [hasDB]);
 
-  // 🔹 FETCH SUGGESTIONS (FIXED)
+  // 🔹 FETCH SUGGESTIONS
   useEffect(() => {
     if (!hasDB) return;
 
@@ -92,17 +96,18 @@ export default function Dashboard() {
 
   return (
     <ProtectedRoute>
-
       <>
         {!hasDB && (
-          <div style={{
-            background: "#fee2e2",
-            color: "#991b1b",
-            padding: "12px",
-            borderRadius: "8px",
-            marginBottom: "20px",
-            textAlign: "center"
-          }}>
+          <div
+            style={{
+              background: "#fee2e2",
+              color: "#991b1b",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "20px",
+              textAlign: "center"
+            }}
+          >
             Redirecting to connect database...
           </div>
         )}
@@ -110,14 +115,14 @@ export default function Dashboard() {
         {/* KPI CARDS */}
         <div className="dashboard-grid">
 
-          <div className="stat-card">
+          <div className="stat-card clickable" onClick={() => goToSchema("tables")}>
             <div className="stat-card-title">Total Tables</div>
             <div className="stat-card-value">
               {hasDB ? metrics.total_tables : "--"}
             </div>
           </div>
 
-          <div className="stat-card">
+          <div className="stat-card clickable" onClick={() => goToSchema("largest")}>
             <div className="stat-card-title">Largest Table</div>
             <div className="stat-card-value">
               {hasDB
@@ -126,21 +131,24 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="stat-card">
+          <div className="stat-card clickable" onClick={() => goToSchema("connected")}>
             <div className="stat-card-title">Most Connected Table</div>
             <div className="stat-card-value">
               {hasDB ? metrics.most_connected_table : "--"}
             </div>
           </div>
 
-          <div className="stat-card">
+          <div className="stat-card clickable" onClick={() => goToSchema("relationships")}>
             <div className="stat-card-title">Total Relationships</div>
             <div className="stat-card-value">
               {hasDB ? metrics.total_relationships : "--"}
             </div>
           </div>
 
-          <div className="stat-card tooltip-card">
+          <div
+            className="stat-card tooltip-card clickable"
+            onClick={() => goToSchema("health")}
+          >
             <div className="stat-card-title">Schema Health</div>
 
             <div className="stat-card-value">
@@ -170,19 +178,29 @@ export default function Dashboard() {
           </div>
 
           <div className="activity-list">
-            <Link href={{ pathname: "/analytics", query: { q: "Top 5 values in a column" }}} className="activity-item">
+            <Link
+              href={{ pathname: "/analytics", query: { q: "Top 5 values in a column" } }}
+              className="activity-item"
+            >
               <div className="activity-icon">📊</div>
               <div className="activity-content">
                 <div className="activity-title">Top Values</div>
-                <div className="activity-subtitle">Discover most frequent entries</div>
+                <div className="activity-subtitle">
+                  Discover most frequent entries
+                </div>
               </div>
             </Link>
 
-            <Link href={{ pathname: "/analytics", query: { q: "Show trends over time" }}} className="activity-item">
+            <Link
+              href={{ pathname: "/analytics", query: { q: "Show trends over time" } }}
+              className="activity-item"
+            >
               <div className="activity-icon">📈</div>
               <div className="activity-content">
                 <div className="activity-title">Trend Analysis</div>
-                <div className="activity-subtitle">Understand data over time</div>
+                <div className="activity-subtitle">
+                  Understand data over time
+                </div>
               </div>
             </Link>
           </div>
@@ -198,22 +216,32 @@ export default function Dashboard() {
             {!hasDB ? (
               <div className="activity-item">
                 <div className="activity-content">
-                  <div className="activity-title">Connect a database to see suggestions</div>
+                  <div className="activity-title">
+                    Connect a database to see suggestions
+                  </div>
                 </div>
               </div>
             ) : questions.length > 0 ? (
               questions.map((q, i) => (
-                <Link key={i} href={{ pathname: "/analytics", query: { q }}} className="activity-item">
+                <Link
+                  key={i}
+                  href={{ pathname: "/analytics", query: { q } }}
+                  className="activity-item"
+                >
                   <div className="activity-icon">?</div>
                   <div className="activity-content">
-                    <div className="activity-title">{formatLabel(q)}</div>
+                    <div className="activity-title">
+                      {formatLabel(q)}
+                    </div>
                   </div>
                 </Link>
               ))
             ) : (
               <div className="activity-item">
                 <div className="activity-content">
-                  <div className="activity-title">Loading suggestions...</div>
+                  <div className="activity-title">
+                    Loading suggestions...
+                  </div>
                 </div>
               </div>
             )}
@@ -237,7 +265,6 @@ export default function Dashboard() {
           </Link>
         </div>
       </>
-
     </ProtectedRoute>
   );
 }
