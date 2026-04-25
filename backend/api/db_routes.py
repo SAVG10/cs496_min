@@ -289,7 +289,7 @@ def get_all_tables(user=Depends(get_current_user)):
     SELECT table_name
     FROM information_schema.tables
     WHERE table_schema = 'public'
-    ORDER BY table_name;
+    ORDER BY table_name
     """
 
     result = execute_query(query, user)
@@ -307,7 +307,7 @@ def get_table_data(table_name: str, user=Depends(get_current_user)):
     if not table_name.replace("_", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid table name")
 
-    query = f'SELECT * FROM "{table_name}" LIMIT 100;'
+    query = f'SELECT * FROM "{table_name}"'
 
     result = execute_query(query, user)
 
