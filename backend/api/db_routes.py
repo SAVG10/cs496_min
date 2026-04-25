@@ -292,7 +292,7 @@ def get_all_tables(user=Depends(get_current_user)):
     ORDER BY table_name;
     """
 
-    result = execute_query(query, user.id)
+    result = execute_query(query, user)
 
     return [row["table_name"] for row in result]
 
@@ -309,6 +309,6 @@ def get_table_data(table_name: str, user=Depends(get_current_user)):
 
     query = f'SELECT * FROM "{table_name}" LIMIT 100;'
 
-    result = execute_query(query, user.id)
+    result = execute_query(query, user)
 
     return result
