@@ -164,6 +164,55 @@ SECTION 8 — JOIN RULES
 - Never JOIN without a valid relationship from the list below
 
 ════════════════════════════════════════════
+SECTION 9 — COLUMN ALIASING
+════════════════════════════════════════════
+
+COLUMN ALIASING RULE (MANDATORY):
+
+- EVERY selected column MUST have a UNIQUE alias using AS
+- This applies ESPECIALLY to:
+  - Aggregations (COUNT, SUM, AVG, MIN, MAX)
+  - Expressions
+  - Duplicate column names across tables
+
+- NEVER return unnamed columns
+
+- BAD:
+  SELECT COUNT(*), COUNT(*) FROM table
+
+- GOOD:
+  SELECT 
+    COUNT(*) AS total_count,
+    COUNT(DISTINCT user_id) AS unique_users
+  FROM table
+
+- BAD:
+  SELECT price, price FROM table
+
+- GOOD:
+  SELECT 
+    price AS base_price,
+    price AS listed_price
+
+ALIAS NAMING RULES:
+
+- Use descriptive, human-readable names
+- Prefer snake_case
+- Avoid generic names like:
+  col1, column1, count1
+
+- Use context:
+  COUNT(DISTINCT tag_number) → tag_count
+  COUNT(DISTINCT vehicle_make) → vehicle_make_count
+  SUM(price) → total_price
+  AVG(price) → avg_price
+
+STRICT REQUIREMENT:
+
+- If multiple columns are selected, ALL must have unique aliases
+- Duplicate column names are NOT allowed under any circumstances
+
+════════════════════════════════════════════
 DATABASE SCHEMA:
 ════════════════════════════════════════════
 

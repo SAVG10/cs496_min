@@ -1,19 +1,147 @@
+/* =========================
+Layout
+========================= */
+
+.content-wrapper {
+  padding: 20px;
+  color: #e2e8f0;
+  background: #0f172a;
+  min-height: 100vh;
+}
+
+/* =========================
+Data Explorer Layout
+========================= */
+
+.data-explorer-layout {
+  display: flex;
+  gap: 20px;
+}
+
+/* =========================
+Left Sidebar (Tables)
+========================= */
+
+.table-list {
+  width: 250px;
+  flex-shrink: 0;
+}
+
 .table-item {
-  padding: 10px;
+  padding: 12px;
   background: #1e293b;
-  margin-bottom: 8px;
-  border-radius: 8px;
+  margin-bottom: 10px;
+  border-radius: 10px;
   cursor: pointer;
+  transition: 0.2s ease;
+  font-weight: 500;
 }
 
 .table-item:hover {
   background: #334155;
 }
 
+.table-item.active {
+  background: #3b82f6;
+  color: white;
+}
+
+/* =========================
+Right Section (Table Data)
+========================= */
+
+.data-section {
+  flex: 1;
+  min-width: 0; /* 🔥 prevents overflow breaking layout */
+}
+
+.data-section h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+/* =========================
+Table Container (SCROLL FIX)
+========================= */
+
 .data-table-container {
-  overflow-x: auto;
-  max-height: 500px;
+  width: 100%;
+  overflow-x: auto;     /* ✅ horizontal scroll */
   overflow-y: auto;
+  max-height: 500px;
+
   border: 1px solid #334155;
-  border-radius: 10px;
+  border-radius: 12px;
+  background: #020617;
+}
+
+/* =========================
+Table Styling
+========================= */
+
+.data-table-container table {
+  min-width: 1200px;     /* 🔥 forces proper column spacing */
+  border-collapse: collapse;
+  table-layout: auto;
+  width: 100%;
+}
+
+/* =========================
+Table Header
+========================= */
+
+.data-table-container thead {
+  position: sticky;
+  top: 0;
+  background: #1e293b;
+  z-index: 10;
+}
+
+.data-table-container th {
+  padding: 10px 14px;
+  white-space: nowrap;   /* 🔥 prevents column merging */
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #94a3b8;
+  border-bottom: 1px solid #334155;
+}
+
+/* =========================
+Table Body
+========================= */
+
+.data-table-container td {
+  padding: 10px 14px;
+  white-space: nowrap;   /* 🔥 keeps columns clean */
+  font-size: 13px;
+  border-bottom: 1px solid #334155;
+}
+
+/* Row hover effect */
+
+.data-table-container tbody tr:hover {
+  background: #1e293b;
+}
+
+/* =========================
+Scrollbar Styling (optional)
+========================= */
+
+.data-table-container::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.data-table-container::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+.data-table-container::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.data-table-container::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }

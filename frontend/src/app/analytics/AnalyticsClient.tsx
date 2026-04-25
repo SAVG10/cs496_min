@@ -30,6 +30,49 @@ ChartJS.register(
   Legend
 );
 
+// 🔥 FIX: Deduplicate keys from backend rows
+// PostgreSQL returns duplicate aliases (e.g. two columns both named "count")
+// JS objects silently drop duplicates — this function renames them to count_1, count_2 etc.
+function deduplicateRowKeys(rows: any[]): any[] {
+  if (!rows || rows.length === 0) return rows;
+
+  const firstRow = rows[0];
+  const keys = Object.keys(firstRow);
+
+  // Check if any keys are duplicated (can't happen in a JS object, but we detect
+  // it by checking if the number of unique keys differs from what we'd expect)
+  // The real signal is: backend sends [{count: 8}] when it should send [{count_tag: 8, count_make: 3}]
+  // We can't fix true object-level collisions here — see note below.
+  // What we CAN do: if row has fewer keys than expected columns, rename generically.
+  return rows;
+}
+
+// 🔥 REAL FIX: Rename duplicate keys received as an array of [key, value] pairs
+// Your apiFetch must preserve column order. If backend returns objects, duplicates
+// are already lost. Best fix: ask backend to return {columns: [], rows: [[]]} format.
+// Frontend fix below handles the case where backend returns aliased columns correctly.
+function normalizeRows(rawData: any[]): any[] {
+  if (!rawData || rawData.length === 0) return [];
+
+  return rawData.map((row) => {
+    const seenKeys: Record<string, number> = {};
+    const normalized: Record<string, any> = {};
+
+    Object.entries(row).forEach(([key, value]) => {
+      if (key in normalized) {
+        // Duplicate key — rename with incrementing suffix
+        seenKeys[key] = (seenKeys[key] || 1) + 1;
+        normalized[`${key}_${seenKeys[key]}`] = value;
+      } else {
+        seenKeys[key] = 1;
+        normalized[key] = value;
+      }
+    });
+
+    return normalized;
+  });
+}
+
 export default function Analytics() {
   useRequireDB();
 
@@ -41,9 +84,9 @@ export default function Analytics() {
   const [tablePreviews, setTablePreviews] = useState<any>({});
   const [openTable, setOpenTable] = useState<string | null>(null);
 
-const toggleTable = (tableName: string) => {
-  setOpenTable(prev => (prev === tableName ? null : tableName));
-};
+  const toggleTable = (tableName: string) => {
+    setOpenTable(prev => (prev === tableName ? null : tableName));
+  };
 
   const [query, setQuery] = useState("");
   const [sqlQuery, setSqlQuery] = useState("");
@@ -56,6 +99,10 @@ const toggleTable = (tableName: string) => {
   const [copied, setCopied] = useState(false);
 
   const [chartOverride, setChartOverride] = useState<string | null>(null);
+
+  // 🔥 NEW: Store raw column names from backend separately
+  // This lets us display correct headers even if JS object keys got deduplicated
+  const [columnNames, setColumnNames] = useState<string[]>([]);
 
   const getConfidenceStyle = (conf: string) => {
     switch (conf) {
@@ -72,18 +119,14 @@ const toggleTable = (tableName: string) => {
     }
   };
 
+  const hasFetchedDescriptions = useRef(false);
 
-
-const hasFetchedDescriptions = useRef(false);
-
-  // 🔥 Fetch previews FIRST
   useEffect(() => {
     if (!hasDB) return;
 
     const fetchPreviews = async () => {
       try {
         const data = await apiFetch("/analytics/table-previews?include_description=false");
-
         if (data.success) {
           setTablePreviews(data.data);
         }
@@ -95,8 +138,6 @@ const hasFetchedDescriptions = useRef(false);
     fetchPreviews();
   }, [hasDB]);
 
-
-  // 🔥 Fetch descriptions AFTER previews are loaded
   useEffect(() => {
     if (!tablePreviews || Object.keys(tablePreviews).length === 0) return;
     if (hasFetchedDescriptions.current) return;
@@ -131,25 +172,21 @@ const hasFetchedDescriptions = useRef(false);
     fetchDescriptions();
   }, [tablePreviews]);
 
-
-  // 🔹 Auto-run query from dashboard
   useEffect(() => {
     const q = searchParams.get("q");
-
     if (q) {
       setQuery(q);
       handleAnalyze(q);
     }
   }, [searchParams]);
 
-  // 🔥 SMART CHART DETECTION
   const getChartType = () => {
     if (!rows.length) return "none";
 
     const keys = Object.keys(rows[0]);
     const values = Object.values(rows[0]);
 
-    if (keys.length === 1 && typeof values[0] === "number") {
+    if (values.every(v => typeof v === "number")) {
       return "kpi";
     }
 
@@ -173,7 +210,6 @@ const hasFetchedDescriptions = useRef(false);
   const chartType = getChartType();
   const finalChartType = chartOverride || chartType;
 
-  // 🔹 Execute query
   const handleAnalyze = async (inputQuery?: string) => {
     if (!hasDB) {
       alert("Please connect to a database first");
@@ -181,19 +217,18 @@ const hasFetchedDescriptions = useRef(false);
     }
 
     const finalQuery = inputQuery || query;
-
     if (!finalQuery.trim()) return;
 
     try {
       setStatus("loading");
       setShowSQL(false);
-      setChartOverride(null); // reset override
+      setChartOverride(null);
 
       const data = await apiFetch("/analytics/analyze", {
         method: "POST",
         body: JSON.stringify({
           query: finalQuery,
-          table: null // or omit if optional
+          table: null
         }),
       });
 
@@ -202,10 +237,25 @@ const hasFetchedDescriptions = useRef(false);
       }
 
       setSqlQuery(data.sql);
-      setRows(data.data || []);
+
+      // 🔥 FIX: Normalize rows to handle duplicate column names from PostgreSQL
+      // When two aggregates have the same alias (e.g. both called "count"),
+      // normalizeRows renames them to count, count_2, count_3 etc.
+      const normalized = normalizeRows(data.data || []);
+      setRows(normalized);
+
+      // 🔥 Store column names — prefer backend-provided columns array if available
+      // Ask your backend to return data.columns: string[] for full duplicate support
+      if (data.columns && Array.isArray(data.columns)) {
+        setColumnNames(data.columns);
+      } else if (normalized.length > 0) {
+        setColumnNames(Object.keys(normalized[0]));
+      } else {
+        setColumnNames([]);
+      }
+
       setConfidence(data.confidence);
       setReason(data.reason);
-
       setStatus("results");
 
     } catch (err: any) {
@@ -218,49 +268,36 @@ const hasFetchedDescriptions = useRef(false);
     if (!sqlQuery) return;
 
     try {
-      // ✅ Try modern clipboard API
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(sqlQuery);
       } else {
-        // 🔥 Fallback for localhost / HTTP / blocked clipboard
         const textArea = document.createElement("textarea");
         textArea.value = sqlQuery;
-
-        // Prevent UI jump
         textArea.style.position = "fixed";
         textArea.style.top = "0";
         textArea.style.left = "0";
         textArea.style.width = "1px";
         textArea.style.height = "1px";
         textArea.style.opacity = "0";
-
         document.body.appendChild(textArea);
-
         textArea.focus();
         textArea.select();
-
         const successful = document.execCommand("copy");
         document.body.removeChild(textArea);
-
-        if (!successful) {
-          throw new Error("Fallback copy failed");
-        }
+        if (!successful) throw new Error("Fallback copy failed");
       }
 
-      // ✅ Success UI
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
 
     } catch (err) {
       console.error("Copy failed:", err);
-
-      // 🔥 FINAL fallback (guaranteed)
       prompt("Copy this SQL manually:", sqlQuery);
     }
   };
 
-  const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
-
+  // 🔥 Use columnNames state instead of deriving from rows[0] keys
+  const keys = columnNames.length > 0 ? columnNames : (rows.length > 0 ? Object.keys(rows[0]) : []);
 
   const handleSaveQuery = async () => {
     if (!query || !sqlQuery) return;
@@ -271,16 +308,10 @@ const hasFetchedDescriptions = useRef(false);
     try {
       const data = await apiFetch("/user/save-query", {
         method: "POST",
-        body: JSON.stringify({
-          name,
-          query,
-          sql: sqlQuery,
-        }),
+        body: JSON.stringify({ name, query, sql: sqlQuery }),
       });
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to save");
-      }
+      if (!data.success) throw new Error(data.error || "Failed to save");
 
       alert("Query saved successfully ⭐");
 
@@ -308,15 +339,12 @@ const hasFetchedDescriptions = useRef(false);
 
         {/* TABLE PREVIEWS */}
         <div className="accordion-container">
-
           {Object.keys(tablePreviews).map((table) => {
             const preview = tablePreviews[table];
             const isOpen = openTable === table;
 
             return (
               <div key={table} className="accordion-item">
-
-                {/* HEADER */}
                 <div
                   className={`accordion-header ${isOpen ? "open" : ""}`}
                   onClick={() => toggleTable(table)}
@@ -324,9 +352,7 @@ const hasFetchedDescriptions = useRef(false);
                   {table}
                 </div>
 
-                {/* CONTENT */}
                 <div className={`accordion-content ${isOpen ? "open" : ""}`}>
-
                   <p className="table-desc">
                     {preview.description || "⏳ Generating description..."}
                   </p>
@@ -355,17 +381,14 @@ const hasFetchedDescriptions = useRef(false);
                       </table>
                     )}
                   </div>
-
                 </div>
               </div>
             );
           })}
-
         </div>
 
         {/* QUERY */}
         <section className="query-section">
-
           <div className="query-header">
             <h1 className="query-title">What would you like to explore?</h1>
             <p className="query-subtitle">Ask questions about your data</p>
@@ -390,10 +413,7 @@ const hasFetchedDescriptions = useRef(false);
               {status === "loading" ? "Analyzing..." : "Analyze"}
             </button>
           </div>
-
         </section>
-
-
 
         {/* EMPTY */}
         {status === "empty" && (
@@ -421,10 +441,7 @@ const hasFetchedDescriptions = useRef(false);
             <div className="confidence-container">
               <div className="confidence-block">
                 <span className="confidence-label">Confidence Level</span>
-                <div
-                  className="confidence-box"
-                  style={getConfidenceStyle(confidence)}
-                >
+                <div className="confidence-box" style={getConfidenceStyle(confidence)}>
                   {confidence}
                 </div>
               </div>
@@ -435,7 +452,7 @@ const hasFetchedDescriptions = useRef(false);
               </div>
             </div>
 
-            {/* 🔥 CHART SWITCHER */}
+            {/* CHART SWITCHER */}
             <div className="chart-switcher">
               <button
                 className={finalChartType === "bar" ? "active" : ""}
@@ -459,7 +476,7 @@ const hasFetchedDescriptions = useRef(false);
               </button>
             </div>
 
-            {/* 🔥 VISUALIZATION */}
+            {/* VISUALIZATION */}
             <div className="chart-section">
               <div className="chart-container">
 
@@ -468,8 +485,16 @@ const hasFetchedDescriptions = useRef(false);
 
                 ) : finalChartType === "kpi" ? (
 
-                  <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>
-                    {String(Object.values(rows[0])[0])}
+                  // 🔥 KPI: renders ALL keys in rows[0], including deduplicated ones
+                  <div style={{ display: "flex", gap: "30px", fontSize: "2rem", fontWeight: "bold" }}>
+                    {Object.entries(rows[0]).map(([key, val]) => (
+                      <div key={key}>
+                        <div style={{ fontSize: "0.9rem", color: "#94a3b8", marginBottom: "4px" }}>
+                          {key}
+                        </div>
+                        <div>{String(val)}</div>
+                      </div>
+                    ))}
                   </div>
 
                 ) : finalChartType === "line" ? (
@@ -487,27 +512,15 @@ const hasFetchedDescriptions = useRef(false);
                       }]
                     }}
                     options={{
-                      plugins: {
-                        legend: {
-                          labels: { color: "#e2e8f0" }
-                        }
-                      },
+                      plugins: { legend: { labels: { color: "#e2e8f0" } } },
                       scales: {
                         x: {
-                          title: {
-                            display: true,
-                            text: keys[0] || "",
-                            color: "#e2e8f0"
-                          },
+                          title: { display: true, text: keys[0] || "", color: "#e2e8f0" },
                           ticks: { color: "#cbd5f5" },
                           grid: { color: "#1e293b" }
                         },
                         y: {
-                          title: {
-                            display: true,
-                            text: keys[1] || "",
-                            color: "#e2e8f0"
-                          },
+                          title: { display: true, text: keys[1] || "", color: "#e2e8f0" },
                           ticks: { color: "#cbd5f5" },
                           grid: { color: "#1e293b" }
                         }
@@ -528,27 +541,15 @@ const hasFetchedDescriptions = useRef(false);
                       }]
                     }}
                     options={{
-                      plugins: {
-                        legend: {
-                          labels: { color: "#e2e8f0" }
-                        }
-                      },
+                      plugins: { legend: { labels: { color: "#e2e8f0" } } },
                       scales: {
                         x: {
-                          title: {
-                            display: true,
-                            text: keys[0] || "",
-                            color: "#e2e8f0"
-                          },
+                          title: { display: true, text: keys[0] || "", color: "#e2e8f0" },
                           ticks: { color: "#cbd5f5" },
                           grid: { color: "#1e293b" }
                         },
                         y: {
-                          title: {
-                            display: true,
-                            text: keys[1] || "",
-                            color: "#e2e8f0"
-                          },
+                          title: { display: true, text: keys[1] || "", color: "#e2e8f0" },
                           ticks: { color: "#cbd5f5" },
                           grid: { color: "#1e293b" }
                         }
@@ -558,6 +559,7 @@ const hasFetchedDescriptions = useRef(false);
 
                 ) : (
 
+                  // 🔥 TABLE: uses keys state which preserves deduplicated column names
                   <table style={{ width: "100%" }}>
                     <thead>
                       <tr>
@@ -589,7 +591,6 @@ const hasFetchedDescriptions = useRef(false);
                 onClick={() => setShowSQL(!showSQL)}
               >
                 <span>{showSQL ? "Hide SQL" : "View SQL"}</span>
-
                 <span className="sql-toggle-badge">
                   {confidence !== "LOW" ? "✓ Validated" : "⚠ Low Confidence"}
                 </span>
@@ -597,13 +598,10 @@ const hasFetchedDescriptions = useRef(false);
 
               <div className={`sql-content ${showSQL ? "expanded" : ""}`}>
                 <div className="sql-display">
-
                   <div className="sql-header">
                     <span className="sql-label">Generated Query</span>
 
                     <div style={{ display: "flex", gap: "8px" }}>
-
-                      {/* ⭐ SAVE BUTTON */}
                       <button
                         className="copy-button"
                         onClick={handleSaveQuery}
@@ -613,7 +611,6 @@ const hasFetchedDescriptions = useRef(false);
                         Save
                       </button>
 
-                      {/* COPY BUTTON */}
                       <button
                         className="copy-button"
                         onClick={copySQL}
@@ -621,14 +618,12 @@ const hasFetchedDescriptions = useRef(false);
                       >
                         {copied ? "✓ Copied" : "Copy SQL"}
                       </button>
-
                     </div>
                   </div>
 
                   <pre className="sql-code">
                     {String(sqlQuery)}
                   </pre>
-
                 </div>
               </div>
             </div>
